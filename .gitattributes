@@ -1,0 +1,12 @@
+* text=auto
+
+*.las linguist-language=Text
+*.las linguist-detectable=false
+
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.sh text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
