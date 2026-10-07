@@ -1,0 +1,37 @@
+# Виртуальное окружение
+venv/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Тесты
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Логи
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Переменные окружения
+.env
+.env.local
+
+# ОС
+.DS_Store
+Thumbs.db

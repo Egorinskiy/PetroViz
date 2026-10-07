@@ -1,0 +1,46 @@
+# ============ Общее ============
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+*.log
+# Локальные тестовые данные (LAS-файлы, эксперименты)
+test_data/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============ Backend (Python) ============
+backend/venv/
+backend/env/
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.py[cod]
+backend/.pytest_cache/
+backend/logs/
+backend/build/
+backend/dist/
+backend/*.egg-info/
+
+# ============ Frontend (Node) ============
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/build/
+frontend/.vite/
+frontend/.cache/
+frontend/coverage/
+frontend/npm-debug.log*
+frontend/yarn-error.log*
+
+# ============ Корневые артефакты ============
+.venv/
+venv/
+env/
+
+# ============ Бэкапы ============
+*.zip
+backend_git_backup.zip
