@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://petroviz:petroviz_dev_password@localhost:5432/petroviz"
     )
+    test_database_url: str = (
+        "postgresql+asyncpg://petroviz:petroviz_dev_password@localhost:5433/petroviz_test"
+    )
 
     # --- Auth ---
     jwt_secret: str = "CHANGE_ME_IN_PRODUCTION"
