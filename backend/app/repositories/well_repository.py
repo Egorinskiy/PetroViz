@@ -74,9 +74,15 @@ class WellRepository:
         logger.info("Stored well %s (%s) for owner %s", well.id, filename, owner_id)
         return well
 
-    async def get(self, well_id: uuid.UUID) -> Optional[tuple[Well, pd.DataFrame]]:
-        """Возвращает (Well, DataFrame) или None."""
+    async def get(
+        self,
+        well_id: uuid.UUID,
+        owner_id: uuid.UUID | None = None,
+    ) -> Optional[tuple[Well, pd.DataFrame]]:
+        """Возвращает (Well, DataFrame). Если owner_id задан — проверяет владение."""
         stmt = select(Well).where(Well.id == well_id)
+        if owner_id is not None:
+            stmt = stmt.where(Well.owner_id == owner_id)
         result = await self.session.execute(stmt)
         well = result.scalar_one_or_none()
         if well is None:
@@ -88,9 +94,15 @@ class WellRepository:
             return None
         return well, df
 
-    async def get_metadata(self, well_id: uuid.UUID) -> Optional[dict]:
-        """Возвращает только метаданные (без DataFrame)."""
+    async def get_metadata(
+        self,
+        well_id: uuid.UUID,
+        owner_id: uuid.UUID | None = None,
+    ) -> Optional[dict]:
+        """Возвращает метаданные. Если owner_id задан — проверяет владение."""
         stmt = select(Well).where(Well.id == well_id)
+        if owner_id is not None:
+            stmt = stmt.where(Well.owner_id == owner_id)
         result = await self.session.execute(stmt)
         well = result.scalar_one_or_none()
         if well is None:

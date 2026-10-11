@@ -18,6 +18,8 @@ from uuid import UUID
 from fastapi import Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from .auth.dependencies import get_current_user
+from .db.models import User
 
 from .db.session import engine, get_session
 from .db import models  # noqa: F401
@@ -36,10 +38,6 @@ async def lifespan(app: FastAPI):
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
     logger.info("Database connection verified")
-
-    # Создаём системного пользователя (временный владелец до auth)
-    async with AsyncSession(engine) as session:
-        await ensure_system_user(session)
 
     yield
 
@@ -76,20 +74,20 @@ class DownsampleMode(str, Enum):
 async def upload_las(
         file: UploadFile = File(...),
         session: AsyncSession = Depends(get_session),
+        current_user: User = Depends(get_current_user),
 ):
     content = await file.read()
     validate_las_upload(file.filename, content)
 
-    logger.info("Upload received: %s (%d bytes)", file.filename, len(content))
+    logger.info(
+        "Upload received: %s (%d bytes) from %s",
+        file.filename, len(content), current_user.username,
+    )
     well_data = parse_las(content, file.filename)
 
-    # Получаем системного пользователя
-    system_user = await ensure_system_user(session)
-
-    # Сохраняем через repository
     repo = WellRepository(session)
     well = await repo.add(
-        owner_id=system_user.id,
+        owner_id=current_user.id,
         filename=file.filename,
         metadata=well_data["metadata"],
         df=well_data["df"],
@@ -105,10 +103,12 @@ async def upload_las(
 async def get_well_info(
         well_id: UUID,
         session: AsyncSession = Depends(get_session),
+        current_user: User = Depends(get_current_user),
 ):
     repo = WellRepository(session)
-    metadata = await repo.get_metadata(well_id)
+    metadata = await repo.get_metadata(well_id, owner_id=current_user.id)
     if metadata is None:
+        # Не раскрываем, что скважина существует — возвращаем 404
         raise WellNotFoundError(f"Well '{well_id}' not found")
     return metadata
 
@@ -123,9 +123,10 @@ async def get_well_data(
         max_points: int | None = None,
         pixel_width: int | None = None,
         session: AsyncSession = Depends(get_session),
+        current_user: User = Depends(get_current_user),
 ):
     repo = WellRepository(session)
-    result = await repo.get(well_id)
+    result = await repo.get(well_id, owner_id=current_user.id)
     if result is None:
         raise WellNotFoundError(f"Well '{well_id}' not found")
 
@@ -140,3 +141,12 @@ async def get_well_data(
         max_points=max_points,
         pixel_width=pixel_width,
     )
+
+@app.get("/api/wells")
+async def list_my_wells(
+        session: AsyncSession = Depends(get_session),
+        current_user: User = Depends(get_current_user),
+):
+    """Список скважин текущего пользователя."""
+    repo = WellRepository(session)
+    return await repo.list_for_user(current_user.id)
