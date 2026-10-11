@@ -14,11 +14,31 @@ from .services.validation import validate_las_upload
 from .storage import well_repository
 from .services.well_query import query_well_data
 from .settings import settings
-
+from contextlib import asynccontextmanager
+from .db.base import Base
+from .db.session import engine
+from .db import models  # noqa: F401 — регистрирует модели в Base.metadata
 
 logger = logging.getLogger("petroviz")
 
-app = FastAPI(title=settings.app_name, version=settings.app_version)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ВРЕМЕННО: создаём таблицы напрямую. Позже заменим на Alembic.
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables created/verified")
+
+    yield
+
+    await engine.dispose()
+    logger.info("Database connection closed")
+
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
