@@ -1,4 +1,5 @@
 from .logging_config import setup_logging
+
 setup_logging()
 
 import logging
@@ -24,8 +25,10 @@ from .repositories.well_repository import (
     WellRepository,
     ensure_system_user,
 )
+from .api.auth import router as auth_router
 
 logger = logging.getLogger("petroviz")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,15 +62,20 @@ app.add_middleware(
 
 register_error_handlers(app)
 
+# Роутеры
+app.include_router(auth_router, prefix="/api")
+
+
 class DownsampleMode(str, Enum):
     FIXED = "fixed"
     ADAPTIVE = "adaptive"
     PIXEL = "pixel"
 
+
 @app.post("/api/wells/upload")
 async def upload_las(
-    file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_session),
+        file: UploadFile = File(...),
+        session: AsyncSession = Depends(get_session),
 ):
     content = await file.read()
     validate_las_upload(file.filename, content)
@@ -95,8 +103,8 @@ async def upload_las(
 
 @app.get("/api/wells/{well_id}")
 async def get_well_info(
-    well_id: UUID,
-    session: AsyncSession = Depends(get_session),
+        well_id: UUID,
+        session: AsyncSession = Depends(get_session),
 ):
     repo = WellRepository(session)
     metadata = await repo.get_metadata(well_id)
@@ -107,14 +115,14 @@ async def get_well_info(
 
 @app.get("/api/wells/{well_id}/data")
 async def get_well_data(
-    well_id: UUID,
-    curves: str | None = None,
-    start_depth: float | None = None,
-    stop_depth: float | None = None,
-    mode: DownsampleMode = DownsampleMode.FIXED,
-    max_points: int | None = None,
-    pixel_width: int | None = None,
-    session: AsyncSession = Depends(get_session),
+        well_id: UUID,
+        curves: str | None = None,
+        start_depth: float | None = None,
+        stop_depth: float | None = None,
+        mode: DownsampleMode = DownsampleMode.FIXED,
+        max_points: int | None = None,
+        pixel_width: int | None = None,
+        session: AsyncSession = Depends(get_session),
 ):
     repo = WellRepository(session)
     result = await repo.get(well_id)
