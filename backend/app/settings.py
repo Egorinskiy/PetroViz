@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # --- Bootstrap admin ---
+    admin_username: str = "admin"
+    admin_email: str = "admin@petroviz.local"
+    admin_password: str | None = None    # если None — admin не создаётся
+
     # --- File limits ---
     max_file_size_bytes: int = 50 * 1024 * 1024
     max_points_default: int = 5000

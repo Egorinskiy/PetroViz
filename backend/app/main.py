@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .error_handlers import register_error_handlers
 from .exceptions import (WellNotFoundError)
+from .services.bootstrap import ensure_admin_user
 from .services.las_service import parse_las
 from .services.validation import validate_las_upload
 from .services.well_query import query_well_data
@@ -25,8 +26,7 @@ from .db.session import engine, get_session
 from .db import models  # noqa: F401
 from .repositories.well_repository import (
     WellRepository,
-    ensure_system_user,
-)
+    )
 from .api.auth import router as auth_router
 
 logger = logging.getLogger("petroviz")
@@ -38,6 +38,10 @@ async def lifespan(app: FastAPI):
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
     logger.info("Database connection verified")
+
+    # Bootstrap первого admin-пользователя (если БД пуста)
+    async with AsyncSession(engine) as session:
+        await ensure_admin_user(session)
 
     yield
 
