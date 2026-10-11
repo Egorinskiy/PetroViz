@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import User, Well
@@ -38,6 +38,7 @@ class WellRepository:
     def _load_dataframe(self, data_path: str) -> pd.DataFrame:
         path = settings.base_dir / data_path
         return pd.read_parquet(path, engine="pyarrow")
+
 
     # --- Публичные методы ---
 
@@ -77,14 +78,10 @@ class WellRepository:
     async def get(
         self,
         well_id: uuid.UUID,
-        owner_id: uuid.UUID | None = None,
+        user_id: uuid.UUID | None = None,
     ) -> Optional[tuple[Well, pd.DataFrame]]:
-        """Возвращает (Well, DataFrame). Если owner_id задан — проверяет владение."""
-        stmt = select(Well).where(Well.id == well_id)
-        if owner_id is not None:
-            stmt = stmt.where(Well.owner_id == owner_id)
-        result = await self.session.execute(stmt)
-        well = result.scalar_one_or_none()
+        """Возвращает (Well, DataFrame). Если user_id задан — проверяет доступ."""
+        well = await self._get_well_with_access_check(well_id, user_id)
         if well is None:
             return None
         try:
@@ -94,17 +91,48 @@ class WellRepository:
             return None
         return well, df
 
+    async def _get_well_with_access_check(
+        self,
+        well_id: uuid.UUID,
+        user_id: uuid.UUID | None,
+    ) -> Optional[Well]:
+        """
+        Возвращает Well, если:
+          - user_id=None (без проверки, для системных вызовов);
+          - user — владелец;
+          - user имеет запись в well_access.
+        Иначе None.
+        """
+        if user_id is None:
+            stmt = select(Well).where(Well.id == well_id)
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
+
+        from ..db.models import WellAccess
+        stmt = (
+            select(Well)
+            .outerjoin(
+                WellAccess,
+                and_(
+                    WellAccess.well_id == Well.id,
+                    WellAccess.user_id == user_id,
+                ),
+            )
+            .where(
+                Well.id == well_id,
+                or_(Well.owner_id == user_id, WellAccess.id.isnot(None)),
+            )
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_metadata(
         self,
         well_id: uuid.UUID,
-        owner_id: uuid.UUID | None = None,
+        user_id: uuid.UUID | None = None,
     ) -> Optional[dict]:
-        """Возвращает метаданные. Если owner_id задан — проверяет владение."""
-        stmt = select(Well).where(Well.id == well_id)
-        if owner_id is not None:
-            stmt = stmt.where(Well.owner_id == owner_id)
-        result = await self.session.execute(stmt)
-        well = result.scalar_one_or_none()
+        """Возвращает метаданные. Если user_id задан — проверяет доступ (владелец или shared)."""
+        well = await self._get_well_with_access_check(well_id, user_id)
         if well is None:
             return None
         return self._well_to_metadata(well)
@@ -119,6 +147,44 @@ class WellRepository:
         result = await self.session.execute(stmt)
         wells = result.scalars().all()
         return [self._well_to_metadata(w) for w in wells]
+
+    async def list_accessible_for_user(self, user_id: uuid.UUID) -> list[dict]:
+        """
+        Возвращает скважины, доступные пользователю:
+          - собственные;
+          - shared через well_access.
+        """
+        from ..db.models import WellAccess
+
+        owned_stmt = select(Well).where(Well.owner_id == user_id)
+        shared_stmt = (
+            select(Well)
+            .join(WellAccess, WellAccess.well_id == Well.id)
+            .where(WellAccess.user_id == user_id)
+        )
+
+        result_owned = await self.session.execute(owned_stmt)
+        owned = list(result_owned.scalars().all())
+
+        result_shared = await self.session.execute(shared_stmt)
+        shared = list(result_shared.scalars().all())
+
+        seen = set()
+        combined = []
+        for w in owned + shared:
+            if w.id in seen:
+                continue
+            seen.add(w.id)
+            combined.append(w)
+
+        combined.sort(key=lambda w: (w.owner_id != user_id, -w.created_at.timestamp()))
+
+        result = []
+        for w in combined:
+            meta = self._well_to_metadata(w)
+            meta["is_owner"] = (w.owner_id == user_id)
+            result.append(meta)
+        return result
 
     async def delete(self, well_id: uuid.UUID) -> bool:
         stmt = select(Well).where(Well.id == well_id)

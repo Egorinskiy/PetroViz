@@ -112,9 +112,8 @@ async def get_well_info(
         current_user: User = Depends(get_current_user),
 ):
     repo = WellRepository(session)
-    metadata = await repo.get_metadata(well_id, owner_id=current_user.id)
+    metadata = await repo.get_metadata(well_id, user_id=current_user.id)
     if metadata is None:
-        # Не раскрываем, что скважина существует — возвращаем 404
         raise WellNotFoundError(f"Well '{well_id}' not found")
     return metadata
 
@@ -132,10 +131,9 @@ async def get_well_data(
         current_user: User = Depends(get_current_user),
 ):
     repo = WellRepository(session)
-    result = await repo.get(well_id, owner_id=current_user.id)
+    result = await repo.get(well_id, user_id=current_user.id)
     if result is None:
         raise WellNotFoundError(f"Well '{well_id}' not found")
-
     _, df = result
 
     return query_well_data(
@@ -153,6 +151,6 @@ async def list_my_wells(
         session: AsyncSession = Depends(get_session),
         current_user: User = Depends(get_current_user),
 ):
-    """Список скважин текущего пользователя."""
+    """Список скважин, доступных пользователю: свои + shared."""
     repo = WellRepository(session)
-    return await repo.list_for_user(current_user.id)
+    return await repo.list_accessible_for_user(current_user.id)
