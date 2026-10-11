@@ -15,7 +15,6 @@ from .storage import well_repository
 from .services.well_query import query_well_data
 from .settings import settings
 from contextlib import asynccontextmanager
-from .db.base import Base
 from .db.session import engine
 from .db import models  # noqa: F401 — регистрирует модели в Base.metadata
 
@@ -23,10 +22,11 @@ logger = logging.getLogger("petroviz")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ВРЕМЕННО: создаём таблицы напрямую. Позже заменим на Alembic.
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created/verified")
+    # Проверяем, что БД отвечает (без создания таблиц — этим управляет Alembic)
+    async with engine.connect() as conn:
+        from sqlalchemy import text
+        await conn.execute(text("SELECT 1"))
+    logger.info("Database connection verified")
 
     yield
 
