@@ -4,7 +4,7 @@ Pydantic-схемы для auth-эндпоинтов.
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from ..db.models import UserRole
 
@@ -41,5 +41,14 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login: datetime | None
 
-    class Config:
-        from_attributes = True
+    class UserResponse(BaseModel):
+        model_config = ConfigDict(from_attributes=True)
+
+        id: uuid.UUID
+        username: str
+        email: str
+        full_name: str | None
+        role: UserRole
+        is_active: bool
+        created_at: datetime
+        last_login: datetime | None

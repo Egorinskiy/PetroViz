@@ -93,3 +93,110 @@ def client(test_engine):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+# ============================================================================
+# Auth-фикстуры
+# ============================================================================
+
+import uuid
+
+
+async def _create_user(session, username: str, email: str, password: str, role):
+    """Создаёт пользователя в тестовой БД через репозиторий."""
+    from app.repositories.user_repository import UserRepository
+    repo = UserRepository(session)
+    return await repo.create(
+        username=username,
+        email=email,
+        password=password,
+        role=role,
+    )
+
+
+@pytest.fixture
+async def default_user(test_engine):
+    """Обычный viewer-пользователь."""
+    from app.db.models import UserRole
+    async with AsyncSession(test_engine) as session:
+        user = await _create_user(
+            session,
+            username="test_viewer",
+            email="viewer@example.com",
+            password="viewer_pass_123",
+            role=UserRole.VIEWER,
+        )
+        return user
+
+
+@pytest.fixture
+async def admin_user(test_engine):
+    """Admin-пользователь."""
+    from app.db.models import UserRole
+    async with AsyncSession(test_engine) as session:
+        user = await _create_user(
+            session,
+            username="test_admin",
+            email="admin@example.com",
+            password="admin_pass_123",
+            role=UserRole.ADMIN,
+        )
+        return user
+
+
+@pytest.fixture
+def auth_headers(client, default_user):
+    """Headers с Bearer-токеном viewer-пользователя."""
+    r = client.post(
+        "/api/auth/login",
+        json={"username": "test_viewer", "password": "viewer_pass_123"},
+    )
+    assert r.status_code == 200, r.text
+    token = r.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def admin_headers(client, admin_user):
+    """Headers с Bearer-токеном admin-пользователя."""
+    r = client.post(
+        "/api/auth/login",
+        json={"username": "test_admin", "password": "admin_pass_123"},
+    )
+    assert r.status_code == 200, r.text
+    token = r.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def auth_client(client, auth_headers):
+    """
+    TestClient с предустановленными auth-заголовками.
+    Используем через `client.get(url, headers=auth_headers)`.
+    Но удобнее — обёртка, чтобы не передавать headers каждый раз.
+    """
+    # Возвращаем маленький объект с методами get/post/delete,
+    # которые автоматически добавляют Authorization.
+    class AuthedClient:
+        def __init__(self, client, headers):
+            self._client = client
+            self._headers = headers
+
+        def _merge(self, kwargs):
+            h = kwargs.pop("headers", {})
+            merged = {**self._headers, **h}
+            return merged
+
+        def get(self, url, **kwargs):
+            return self._client.get(url, headers=self._merge(kwargs), **kwargs)
+
+        def post(self, url, **kwargs):
+            return self._client.post(url, headers=self._merge(kwargs), **kwargs)
+
+        def delete(self, url, **kwargs):
+            return self._client.delete(url, headers=self._merge(kwargs), **kwargs)
+
+        def patch(self, url, **kwargs):
+            return self._client.patch(url, headers=self._merge(kwargs), **kwargs)
+
+    return AuthedClient(client, auth_headers)
