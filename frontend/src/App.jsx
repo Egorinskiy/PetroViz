@@ -57,7 +57,10 @@ function App() {
       const metadata = uploadResponse.data.metadata;
       setWellId(newWellId);
 
-      const curveNames = metadata.curves.map((c) => c.mnemonic);
+      const depthMnemonic = metadata.depth_mnemonic || null;
+      const curveNames = metadata.curves
+        .map((c) => c.mnemonic)
+        .filter((m) => !depthMnemonic || m.toUpperCase() !== depthMnemonic.toUpperCase());
 
       const units = {};
       metadata.curves.forEach((c) => {

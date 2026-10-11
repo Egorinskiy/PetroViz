@@ -9,9 +9,9 @@ export const CURVE_FAMILIES = {
   SP: ['SP', 'SPR', 'PSP', 'SSP', 'PS', 'ПС'],
   CALI: ['CALI', 'CAL', 'CAV', 'CALIPER', 'DCAL', 'DS', 'DSFS'],
   BS: ['BS', 'BIT', 'BIT_SIZE', 'DIAM'],
-  RDEP: ['RDEP', 'RT', 'ILD', 'LLD', 'RILD', 'RDEEP', 'RES', 'RLA5', 'AT90'],
-  RSHA: ['RSHA', 'RS', 'LLS', 'RLLS', 'RSS', 'RLA1', 'AT10'],
-  RMED: ['RMED', 'RME', 'RLA3', 'AT30'],
+  RDEP: ['RDEP', 'RT', 'ILD', 'LLD', 'RILD', 'RDEEP', 'RES', 'RLA5', 'AT90', 'AT60', 'AT90', 'AHT90', 'HDRS'],
+  RMED: ['RMED', 'RME', 'RLA3', 'AT30', 'AHT30', 'HDRM'],
+  RSHA: ['RSHA', 'RS', 'LLS', 'RLLS', 'RSS', 'RLA1', 'AT10', 'AT20', 'AHT10', 'AHT20', 'HDRL'],
   RXO: ['RXO', 'MLL', 'MSFL'],
   RMIC: ['RMIC', 'RMICRO', 'MICRO', 'RML', 'RMLL'],
   PEF: ['PEF', 'PE', 'PEFZ'],
@@ -22,11 +22,15 @@ export const CURVE_FAMILIES = {
 
 // Служебные мнемоники — не физические кривые
 export const SERVICE_CURVES = [
-  'DEPT', 'DEPTH', 'INDEX', 'TVD', 'TVDSS', 'TIME', 'MD', 'DEPTH_MD',
-  'X_LOC', 'Y_LOC', 'Z_LOC',
+  // Глубина и координаты
+  'DEPT', 'DEPTH', 'INDEX', 'TIME', 'MD', 'TVD', 'TVDSS', 'TVD_SS',
+  'DEPTH_MD', 'DEPTH_M', 'DEPT_M', 'MD_KB', 'MD_GL', 'DME',
+  'X_LOC', 'Y_LOC', 'Z_LOC', 'X', 'Y', 'Z',
+  // Литология / ML-выходы
   'LITHOLOGY', 'LITH', 'LITHOFACIES', 'FACIES', 'LITHOTYPE',
-  'CONFIDENCE', 'PROB', 'PROBABILITY',
-  'FORMATION', 'INTERVAL', 'FLAG', 'MARKER',
+  'CONFIDENCE', 'PROB', 'PROBABILITY', 'CLASS', 'LABEL',
+  // Разное
+  'FORMATION', 'INTERVAL', 'FLAG', 'MARKER', 'ZONE', 'LAYER',
 ];
 
 // Обратный индекс: ALIAS → FAMILY

@@ -45,6 +45,24 @@ def query_well_data(
     # 2. Выбор кривых
     if curves:
         wanted = [c.strip() for c in curves.split(",") if c.strip()]
+
+        # Отфильтровываем depth-мнемонику (это индекс, а не колонка)
+        depth_name = work.index.name
+        if depth_name:
+            filtered = [c for c in wanted if c.upper() != depth_name.upper()]
+            if len(filtered) != len(wanted):
+                skipped = set(wanted) - set(filtered)
+                logger.warning(
+                    "Skipping depth mnemonic(s) %s from requested curves",
+                    skipped,
+                )
+                wanted = filtered
+
+        if not wanted:
+            # Клиент запросил только глубину — возвращаем только её
+            logger.info("Only depth was requested; returning depth only")
+            return {"depth": [float(v) for v in work.index]}
+
         missing = [c for c in wanted if c not in work.columns]
         if missing:
             raise CurveNotFoundError(
