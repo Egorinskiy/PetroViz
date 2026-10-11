@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useWellData } from './hooks/useWellData';
 import { DEFAULT_SCALE } from './constants/depthScales';
 import { Topbar } from './components/Topbar';
 import { CurvesBar } from './components/CurvesBar';
 import { CurvesPanel } from './components/CurvesPanel';
 import WellLogViewer from './components/WellLogViewer';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { UserMenu } from './components/UserMenu';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 import './App.css';
 
-function App() {
+function MainPage() {
   const {
     fileName,
     wellData,
@@ -24,13 +29,14 @@ function App() {
   const [panelOpen, setPanelOpen] = useState(false);
 
   return (
-    <div className="App">
+    <>
       <Topbar
         fileName={fileName}
         onFileSelect={uploadFile}
         scale={scale}
         onScaleChange={setScale}
         showScale={!!wellData}
+        rightSlot={<UserMenu />}
       />
 
       {wellData && (
@@ -76,6 +82,26 @@ function App() {
       {loading && !wellData && (
         <div className="initial-loading">Загрузка данных…</div>
       )}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <div className="App">
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <MainPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   );
 }

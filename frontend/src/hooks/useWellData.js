@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import { apiClient } from '../api/axiosClient';
 import { isServiceCurve } from '../constants/curveFamilies';
 
 const MAX_CURVES = 8;
@@ -38,13 +38,13 @@ export function useWellData() {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`/api/wells/${id}/data`, {
-        params: {
-          curves: curves.join(','),
-          mode: 'pixel',
-          pixel_width: 900,
-        },
-      });
+      const response = await apiClient.get(`/wells/${id}/data`, {
+      params: {
+        curves: curves.join(','),
+        mode: 'pixel',
+        pixel_width: 900,
+      },
+    });
       setWellData(response.data);
     } catch (err) {
       const detail = err.response?.data?.detail || err.message;
@@ -70,8 +70,8 @@ export function useWellData() {
     formData.append('file', file);
 
     try {
-      const uploadResponse = await axios.post('/api/wells/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      const uploadResponse = await apiClient.post('/wells/upload', formData, {
+         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       const newWellId = uploadResponse.data.well_id;
