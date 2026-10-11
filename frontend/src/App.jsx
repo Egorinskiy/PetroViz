@@ -10,6 +10,9 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserMenu } from './components/UserMenu';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { AdminLayout } from './components/AdminLayout';
+import { AdminUsersPage } from './pages/AdminUsersPage';
+import { AdminWellsPage } from './pages/AdminWellsPage';
 import './App.css';
 
 function MainPage() {
@@ -100,6 +103,21 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+          {/* Admin-роуты */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/admin/users" replace />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="wells" element={<AdminWellsPage />} />
+          </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

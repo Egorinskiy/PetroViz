@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { Link } from 'react-router-dom';
 
 export function UserMenu() {
   const { user, logout, isAdmin } = useAuth();
@@ -41,10 +42,10 @@ export function UserMenu() {
           </div>
 
           {isAdmin && (
-            <a href="/admin/users" className="user-menu-item">
-              ⚙️ Админка
-            </a>
-          )}
+              <Link to="/admin/users" className="user-menu-item" onClick={() => setOpen(false)}>
+                ⚙️ Админка
+              </Link>
+            )}
 
           <button className="user-menu-item user-menu-logout" onClick={logout}>
             Выйти

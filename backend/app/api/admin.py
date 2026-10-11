@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..admin.well_schemas import (
     WellAdminItem, WellAccessItem, WellAccessListResponse,
     ShareRequest,
+    BulkShareRequest, BulkShareResponse,
 )
 from ..services.admin_well_service import AdminWellService
 from ..admin.schemas import (
@@ -33,7 +34,7 @@ router = APIRouter(
 @router.get("/users", response_model=UserListResponse)
 async def list_users(
     search: str | None = Query(None, description="Поиск по username/email/full_name"),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
 ):
@@ -87,6 +88,24 @@ async def delete_user(
     svc = AdminUserService(session)
     await svc.delete_user(user_id, actor)
     return None
+
+@router.post("/wells/bulk-share", response_model=BulkShareResponse)
+async def bulk_share_wells(
+    data: BulkShareRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Массовая выдача доступа к списку скважин."""
+    svc = AdminWellService(session)
+    result = await svc.bulk_share(
+        well_ids=data.well_ids,
+        user_id=data.user_id,
+        permission=data.permission,
+    )
+    return BulkShareResponse(
+        granted=result["granted"],
+        skipped=result["skipped"],
+        failed=result["failed"],
+    )
 
 @router.get("/wells", response_model=list[WellAdminItem])
 async def list_all_wells(
@@ -174,3 +193,4 @@ async def revoke_well_access(
     svc = AdminWellService(session)
     await svc.revoke(well_id, user_id)
     return None
+

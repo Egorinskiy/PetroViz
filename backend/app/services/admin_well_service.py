@@ -103,3 +103,49 @@ class AdminWellService:
             raise AccessNotFoundError(
                 f"No access record for user '{user_id}' on well '{well_id}'"
             )
+
+    async def bulk_share(
+        self,
+        well_ids: list[uuid.UUID],
+        user_id: uuid.UUID,
+        permission: WellPermission,
+    ) -> dict:
+        """
+        Выдаёт доступ одному пользователю к списку скважин.
+        Возвращает отчёт: {granted, skipped, failed}.
+        Не падает, если одна скважина не найдена — продолжает остальные.
+        """
+        # Проверяем пользователя один раз
+        user = await self.session.get(User, user_id)
+        if user is None:
+            from .admin_service import UserNotFoundError
+            raise UserNotFoundError(f"User '{user_id}' not found")
+
+        granted: list[uuid.UUID] = []
+        skipped: list[dict] = []
+        failed: list[dict] = []
+
+        for well_id in well_ids:
+            try:
+                well, owner = await self.get_well(well_id)
+
+                if user_id == owner.id:
+                    skipped.append({
+                        "well_id": well_id,
+                        "reason": "user is owner",
+                    })
+                    continue
+
+                await self.access_repo.grant(user_id, well_id, permission)
+                granted.append(well_id)
+            except WellAdminNotFoundError:
+                failed.append({"well_id": well_id, "error": "well not found"})
+            except Exception as e:
+                logger.exception("Bulk share failed for well %s", well_id)
+                failed.append({"well_id": well_id, "error": str(e)})
+
+        logger.info(
+            "Bulk share: user=%s granted=%d skipped=%d failed=%d",
+            user_id, len(granted), len(skipped), len(failed),
+        )
+        return {"granted": granted, "skipped": skipped, "failed": failed}

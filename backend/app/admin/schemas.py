@@ -4,13 +4,14 @@ Pydantic-схемы для admin-эндпоинтов.
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..db.models import UserRole
 
 
 class UserListItem(BaseModel):
-    """Компактный ответ для списка."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     username: str
     email: str
@@ -19,9 +20,6 @@ class UserListItem(BaseModel):
     is_active: bool
     created_at: datetime
     last_login: datetime | None
-
-    class Config:
-        from_attributes = True
 
 
 class UserListResponse(BaseModel):
