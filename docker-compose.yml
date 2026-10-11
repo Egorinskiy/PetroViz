@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: petroviz-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: petroviz
+      POSTGRES_PASSWORD: petroviz_dev_password
+      POSTGRES_DB: petroviz
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - petroviz_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U petroviz -d petroviz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  petroviz_postgres_data:
+    name: petroviz_postgres_data
