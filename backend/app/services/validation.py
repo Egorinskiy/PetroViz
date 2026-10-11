@@ -1,5 +1,5 @@
 from pathlib import PurePosixPath
-from ..config import MAX_FILE_SIZE_BYTES, ALLOWED_EXTENSIONS
+from ..settings import settings
 from ..exceptions import InvalidFileError, FileTooLargeError
 
 
@@ -8,17 +8,17 @@ def validate_las_upload(filename: str | None, content: bytes) -> None:
         raise InvalidFileError("Filename is missing")
 
     ext = PurePosixPath(filename).suffix.lower()
-    if ext not in ALLOWED_EXTENSIONS:
+    if ext not in settings.allowed_extensions:
         raise InvalidFileError(
-            f"Unsupported extension '{ext}'. Allowed: {sorted(ALLOWED_EXTENSIONS)}"
+            f"Unsupported extension '{ext}'. Allowed: {sorted(settings.allowed_extensions)}"
         )
 
     if len(content) == 0:
         raise InvalidFileError("File is empty")
 
-    if len(content) > MAX_FILE_SIZE_BYTES:
+    if len(content) > settings.max_file_size_bytes:
         raise FileTooLargeError(
-            f"File size {len(content)} exceeds limit {MAX_FILE_SIZE_BYTES}"
+            f"File size {len(content)} exceeds limit {settings.max_file_size_bytes:}"
         )
 
     if not _looks_like_las(content):

@@ -2,16 +2,7 @@ import logging
 import pandas as pd
 import numpy as np
 
-from ..config import (
-    MAX_POINTS_DEFAULT,
-    MAX_POINTS_HARD_LIMIT,
-    ADAPTIVE_POINTS_PER_METER,
-    ADAPTIVE_MIN_POINTS,
-    ADAPTIVE_MAX_POINTS,
-    PIXEL_OVERSAMPLE,
-    PIXEL_MIN_WIDTH,
-    PIXEL_MAX_WIDTH,
-)
+from ..settings import settings
 from ..exceptions import InvalidParameterError
 
 logger = logging.getLogger("petroviz.downsample")
@@ -21,12 +12,12 @@ logger = logging.getLogger("petroviz.downsample")
 
 def compute_fixed_max_points(max_points: int | None) -> int:
     """Режим fixed: клиент либо задал число, либо берём дефолт."""
-    value = max_points if max_points is not None else MAX_POINTS_DEFAULT
+    value = max_points if max_points is not None else settings.max_points_default
     if value <= 0:
         raise InvalidParameterError("max_points must be positive")
-    if value > MAX_POINTS_HARD_LIMIT:
+    if value > settings.max_points_hard_limit:
         raise InvalidParameterError(
-            f"max_points exceeds hard limit {MAX_POINTS_HARD_LIMIT}"
+            f"max_points exceeds hard limit {settings.max_points_hard_limit}"
         )
     return value
 
@@ -35,10 +26,10 @@ def compute_adaptive_max_points(start_depth: float, stop_depth: float) -> int:
     """Режим adaptive: число точек пропорционально интервалу глубин."""
     interval = abs(stop_depth - start_depth)
     if interval <= 0:
-        return ADAPTIVE_MIN_POINTS
+        return settings.adaptive_min_points
 
-    raw = int(interval * ADAPTIVE_POINTS_PER_METER)
-    clamped = max(ADAPTIVE_MIN_POINTS, min(raw, ADAPTIVE_MAX_POINTS))
+    raw = int(interval * settings.adaptive_points_per_meter)
+    clamped = max(settings.adaptive_min_points, min(raw, settings.adaptive_max_points))
     logger.debug(
         "adaptive: interval=%.2f m → raw=%d → clamped=%d",
         interval, raw, clamped,
@@ -52,16 +43,16 @@ def compute_pixel_max_points(pixel_width: int | None) -> int:
         raise InvalidParameterError(
             "pixel_width is required when mode=pixel"
         )
-    if pixel_width < PIXEL_MIN_WIDTH:
+    if pixel_width < settings.pixel_min_width:
         raise InvalidParameterError(
-            f"pixel_width must be >= {PIXEL_MIN_WIDTH}"
+            f"pixel_width must be >= {settings.pixel_min_width}"
         )
-    if pixel_width > PIXEL_MAX_WIDTH:
+    if pixel_width > settings.pixel_max_width:
         raise InvalidParameterError(
-            f"pixel_width must be <= {PIXEL_MAX_WIDTH}"
+            f"pixel_width must be <= {settings.pixel_max_width}"
         )
-    raw = int(pixel_width * PIXEL_OVERSAMPLE)
-    return min(raw, MAX_POINTS_HARD_LIMIT)
+    raw = int(pixel_width * settings.pixel_oversample)
+    return min(raw, settings.max_points_hard_limit)
 
 
 def resolve_max_points(

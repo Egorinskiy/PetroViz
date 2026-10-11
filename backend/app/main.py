@@ -13,15 +13,16 @@ from .services.las_service import parse_las
 from .services.validation import validate_las_upload
 from .storage import well_repository
 from .services.well_query import query_well_data
+from .settings import settings
 
 
 logger = logging.getLogger("petroviz")
 
-app = FastAPI(title="PetroViz API", version="0.1.0")
+app = FastAPI(title=settings.app_name, version=settings.app_version)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )

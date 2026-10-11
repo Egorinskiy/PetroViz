@@ -31,7 +31,11 @@ logs/
 # Переменные окружения
 .env
 .env.local
+.env.*.local
 
 # ОС
 .DS_Store
 Thumbs.db
+
+# Well data (parquet files)
+storage/wells/*.parquet
