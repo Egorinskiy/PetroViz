@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { apiClient } from './api/axiosClient';
+import { useAuth } from './hooks/useAuth';
+import { useWellList } from './hooks/useWellList';
+import { WellsSidebar } from './components/WellsSidebar';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useWellData } from './hooks/useWellData';
 import { DEFAULT_SCALE } from './constants/depthScales';
@@ -16,75 +20,232 @@ import { AdminWellsPage } from './pages/AdminWellsPage';
 import './App.css';
 
 function MainPage() {
-  const {
-    fileName,
-    wellData,
-    availableCurves,
-    curveUnits,
-    selectedCurves,
-    loading,
-    error,
-    uploadFile,
-    toggleCurve,
-  } = useWellData();
+  const { user } = useAuth();
+  const { wells, loading: wellsLoading, error: wellsError, reload } = useWellList();
 
+  const [activeWellId, setActiveWellId] = useState(null);
+  const [wellData, setWellData] = useState(null);
+  const [curveUnits, setCurveUnits] = useState({});
+  const [availableCurves, setAvailableCurves] = useState([]);
+  const [selectedCurves, setSelectedCurves] = useState([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [panelOpen, setPanelOpen] = useState(false);
+
+  const MAX_CURVES = 8;
+  const debounceRef = useRef(null);
+
+  // --- Загрузка данных выбранной скважины ---
+  const fetchCurveData = useCallback(
+    async (wellId, curves) => {
+      if (!wellId || curves.length === 0) {
+        setWellData(null);
+        return;
+      }
+      setDataLoading(true);
+      setDataError(null);
+      try {
+        const response = await apiClient.get(`/wells/${wellId}/data`, {
+          params: {
+            curves: curves.join(','),
+            mode: 'pixel',
+            pixel_width: 900,
+          },
+        });
+        setWellData(response.data);
+      } catch (err) {
+        setDataError(err.response?.data?.detail || err.message);
+      } finally {
+        setDataLoading(false);
+      }
+    },
+    []
+  );
+
+  // Auto-refresh при смене выбора
+  useEffect(() => {
+    if (!activeWellId) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchCurveData(activeWellId, selectedCurves);
+    }, 400);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [activeWellId, selectedCurves, fetchCurveData]);
+
+  // --- Выбор скважины ---
+  const handleSelectWell = (well) => {
+    setActiveWellId(well.well_id);
+    setAvailableCurves(well.curves.map((c) => c.mnemonic));
+    const units = {};
+    well.curves.forEach((c) => {
+      units[c.mnemonic] = c.unit || '';
+    });
+    setCurveUnits(units);
+
+    // Автовыбор
+    const preferred = ['GR', 'RHOB', 'NPHI', 'DTC'];
+    const available = well.curves.map((c) => c.mnemonic);
+    const auto = preferred.filter((p) => available.includes(p));
+    const fallback = auto.length > 0 ? auto : available.slice(1, 4);
+    setSelectedCurves(fallback);
+
+    // Сброс данных
+    setWellData(null);
+  };
+
+  // --- Загрузка нового файла ---
+  const handleUpload = async (file) => {
+    if (!file) return;
+    setDataLoading(true);
+    setDataError(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await apiClient.post('/wells/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await reload();
+      // Автоматически выбрать загруженную скважину
+      const newWellId = response.data.well_id;
+      const newWell = {
+        well_id: newWellId,
+        ...response.data.metadata,
+        is_owner: true,
+      };
+      handleSelectWell(newWell);
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message;
+      setDataError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  // --- Удаление скважины ---
+  const handleDelete = async (well) => {
+    try {
+      await apiClient.delete(`/wells/${well.well_id}`);
+      if (well.well_id === activeWellId) {
+        setActiveWellId(null);
+        setWellData(null);
+      }
+      await reload();
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message;
+      alert(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    }
+  };
+
+  const toggleCurve = (curve) => {
+    setSelectedCurves((prev) => {
+      if (prev.includes(curve)) return prev.filter((c) => c !== curve);
+      if (prev.length >= MAX_CURVES) return prev;
+      return [...prev, curve];
+    });
+  };
 
   return (
     <>
       <Topbar
-        fileName={fileName}
-        onFileSelect={uploadFile}
+        fileName={null}
+        onFileSelect={handleUpload}
         scale={scale}
         onScaleChange={setScale}
         showScale={!!wellData}
         rightSlot={<UserMenu />}
       />
 
-      {wellData && (
-        <CurvesBar
-          selectedCurves={selectedCurves}
-          isOpen={panelOpen}
-          onToggle={() => setPanelOpen((o) => !o)}
+      <div className="main-layout">
+        <WellsSidebar
+          wells={wells}
+          loading={wellsLoading}
+          activeWellId={activeWellId}
+          onSelect={handleSelectWell}
+          onDelete={handleDelete}
+          reload={reload}
         />
-      )}
 
-      {panelOpen && availableCurves.length > 0 && (
-        <CurvesPanel
-          availableCurves={availableCurves}
-          curveUnits={curveUnits}
-          selectedCurves={selectedCurves}
-          onToggle={toggleCurve}
-        />
-      )}
+        <div className="main-content">
+          {wellsError && (
+            <div className="error-banner">Ошибка загрузки списка: {wellsError}</div>
+          )}
 
-      {error && <div className="error-banner">Ошибка: {error}</div>}
-
-      {wellData && (
-        <div className="chart-wrapper">
-          <WellLogViewer
-            wellData={wellData}
-            curvesToPlot={selectedCurves.filter((c) =>
-              Object.prototype.hasOwnProperty.call(wellData, c)
-            )}
-            units={curveUnits}
-            scale={scale}
-          />
-          {loading && (
-            <div className="loading-overlay">
-              <div className="progress-bar">
-                <div className="progress-bar-inner" />
-              </div>
-              <p>Обновление данных…</p>
+          {!activeWellId && (
+            <div className="welcome-screen">
+              <h2>Добро пожаловать, {user?.username}!</h2>
+              <p>Выберите скважину слева или загрузите новый LAS-файл.</p>
+              {wells.length === 0 && (
+                <p style={{ color: '#888' }}>
+                  У вас пока нет скважин. Начните с загрузки LAS.
+                </p>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {loading && !wellData && (
-        <div className="initial-loading">Загрузка данных…</div>
-      )}
+          {activeWellId && (
+            <>
+              <div className="well-header">
+                <h2>
+                  {wells.find((w) => w.well_id === activeWellId)?.well_name ||
+                    wells.find((w) => w.well_id === activeWellId)?.filename}
+                </h2>
+                {!wells.find((w) => w.well_id === activeWellId)?.is_owner && (
+                  <span className="shared-badge">🌐 Расшаренная</span>
+                )}
+              </div>
+
+              <CurvesBar
+                selectedCurves={selectedCurves}
+                isOpen={panelOpen}
+                onToggle={() => setPanelOpen((o) => !o)}
+              />
+
+              {panelOpen && availableCurves.length > 0 && (
+                <CurvesPanel
+                  availableCurves={availableCurves}
+                  curveUnits={curveUnits}
+                  selectedCurves={selectedCurves}
+                  onToggle={toggleCurve}
+                />
+              )}
+
+              {dataError && (
+                <div className="error-banner">Ошибка: {dataError}</div>
+              )}
+
+              {wellData && (
+                <div className="chart-wrapper">
+                  <WellLogViewer
+                    wellData={wellData}
+                    curvesToPlot={selectedCurves.filter((c) =>
+                      Object.prototype.hasOwnProperty.call(wellData, c)
+                    )}
+                    units={curveUnits}
+                    scale={scale}
+                  />
+                  {dataLoading && (
+                    <div className="loading-overlay">
+                      <div className="progress-bar">
+                        <div className="progress-bar-inner" />
+                      </div>
+                      <p>Обновление данных…</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {dataLoading && !wellData && (
+                <div className="initial-loading">Загрузка данных…</div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </>
   );
 }

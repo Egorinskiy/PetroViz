@@ -20,7 +20,7 @@ from uuid import UUID
 from fastapi import Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from .auth.dependencies import get_current_user
+from .auth.dependencies import get_current_user, ForbiddenError
 from .db.models import User
 
 from .db.session import engine, get_session
@@ -154,3 +154,23 @@ async def list_my_wells(
     """Список скважин, доступных пользователю: свои + shared."""
     repo = WellRepository(session)
     return await repo.list_accessible_for_user(current_user.id)
+
+@app.delete("/api/wells/{well_id}", status_code=204)
+async def delete_well(
+        well_id: UUID,
+        session: AsyncSession = Depends(get_session),
+        current_user: User = Depends(get_current_user),
+):
+    """Удаление скважины. Только владелец может удалить."""
+    repo = WellRepository(session)
+    well = await repo.get(well_id, user_id=current_user.id)
+    if well is None:
+        raise WellNotFoundError(f"Well '{well_id}' not found")
+
+    well_obj, _ = well
+    # Удалять может только владелец
+    if well_obj.owner_id != current_user.id:
+        raise ForbiddenError("Only the owner can delete this well")
+
+    await repo.delete(well_id)
+    return None
