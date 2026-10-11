@@ -7,6 +7,7 @@ from enum import Enum
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
+from .api.admin import router as admin_router
 from .error_handlers import register_error_handlers
 from .exceptions import (WellNotFoundError)
 from .services.bootstrap import ensure_admin_user
@@ -66,6 +67,7 @@ register_error_handlers(app)
 
 # Роутеры
 app.include_router(auth_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 
 
 class DownsampleMode(str, Enum):
