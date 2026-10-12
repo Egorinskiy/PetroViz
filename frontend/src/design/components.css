@@ -1,0 +1,417 @@
+/**
+ * PetroViz Design System — универсальные компоненты.
+ * Все стили используют CSS-переменные из tokens.css.
+ */
+
+/* ============================================================================
+   BUTTONS
+   ============================================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-base),
+              border-color var(--transition-base),
+              color var(--transition-base);
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Primary — акцентное действие */
+.btn--primary {
+  background: var(--color-accent-blue);
+  color: #fff;
+  border-color: var(--color-accent-blue);
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-blue-dark);
+  border-color: var(--color-accent-blue-dark);
+}
+
+/* Secondary — нейтральное действие */
+.btn--secondary {
+  background: #fff;
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+.btn--secondary:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+}
+
+/* Danger — деструктивное */
+.btn--danger {
+  background: #fff;
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+.btn--danger:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+/* Ghost — без фона */
+.btn--ghost {
+  background: transparent;
+  color: var(--color-accent-blue);
+  border-color: transparent;
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+}
+
+/* Размер small */
+.btn--sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+/* Размер large */
+.btn--lg {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--fs-md);
+}
+
+/* На всю ширину */
+.btn--block {
+  width: 100%;
+}
+
+/* ============================================================================
+   INPUTS
+   ============================================================================ */
+
+.input,
+.select,
+.textarea {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  color: var(--color-text);
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-base),
+              box-shadow var(--transition-base);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-accent-blue);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  background: var(--color-bg-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.input--error,
+.select--error {
+  border-color: var(--color-danger);
+}
+
+.select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='%23666' d='M6 9L2 4h8z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+/* Label */
+.label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+  margin-bottom: var(--space-1);
+}
+
+/* ============================================================================
+   CARDS
+   ============================================================================ */
+
+.card {
+  background: #fff;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.card__header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-light);
+  font-weight: var(--fw-semibold);
+  color: var(--color-brand-navy);
+  font-size: var(--fs-md);
+}
+
+.card__body {
+  padding: var(--space-4);
+}
+
+.card__footer {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg-subtle);
+}
+
+/* ============================================================================
+   TABLES
+   ============================================================================ */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  background: #fff;
+}
+
+.table thead {
+  background: var(--color-bg-muted);
+}
+
+.table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border-light);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  vertical-align: middle;
+  line-height: 1.3;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--color-bg-subtle);
+}
+
+.table--compact th,
+.table--compact td {
+  padding: var(--space-1) var(--space-2);
+}
+
+.table--striped tbody tr:nth-child(even) {
+  background: var(--color-bg-subtle);
+}
+
+/* Обёртка для скролла больших таблиц */
+.table-wrapper {
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+/* ============================================================================
+   BADGES
+   ============================================================================ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  border-radius: var(--radius-full);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.badge--default {
+  background: var(--color-bg-muted);
+  color: var(--color-text-muted);
+}
+.badge--success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+.badge--warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+.badge--danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+.badge--info {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+.badge--shared {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+.badge--admin {
+  background: var(--color-brand-navy);
+  color: #fff;
+}
+
+/* ============================================================================
+   BANNERS (сообщения)
+   ============================================================================ */
+
+.banner {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  margin-bottom: var(--space-2);
+  border-left: 4px solid;
+}
+
+.banner--error {
+  background: var(--color-danger-light);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+.banner--success {
+  background: var(--color-success-light);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+.banner--warning {
+  background: var(--color-warning-light);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+.banner--info {
+  background: var(--color-info-light);
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+/* ============================================================================
+   MODALS
+   ============================================================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  padding: var(--space-4);
+}
+
+.modal {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.modal__header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--color-brand-navy);
+}
+
+.modal__body {
+  padding: var(--space-5);
+}
+
+.modal__footer {
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--color-border-light);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ============================================================================
+   UTILITIES
+   ============================================================================ */
+
+/* Mono-шрифт для мнемоник, чисел, кода */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+.text-subtle {
+  color: var(--color-text-subtle);
+}
+.text-navy {
+  color: var(--color-brand-navy);
+}
+.text-red {
+  color: var(--color-brand-red);
+}
+
+.text-xs { font-size: var(--fs-xs); }
+.text-sm { font-size: var(--fs-sm); }
+.text-base { font-size: var(--fs-base); }
+.text-lg { font-size: var(--fs-lg); }
+
+.fw-medium { font-weight: var(--fw-medium); }
+.fw-semibold { font-weight: var(--fw-semibold); }
+.fw-bold { font-weight: var(--fw-bold); }
+
+/* ============================================================================
+   SPINNER
+   ============================================================================ */
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent-blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
