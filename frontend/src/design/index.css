@@ -1,0 +1,7 @@
+/**
+ * PetroViz Design System — точка входа.
+ */
+
+@import './fonts.css';
+@import './tokens.css';
+@import './base.css';

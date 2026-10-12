@@ -1,0 +1,12 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Track 1: GR -->
+  <rect x="6" y="8" width="14" height="48" rx="2" fill="#2e7d32"/>
+  <!-- Track 2: RHOB -->
+  <rect x="25" y="8" width="14" height="48" rx="2" fill="#c62828"/>
+  <!-- Track 3: NPHI -->
+  <rect x="44" y="8" width="14" height="48" rx="2" fill="#1565c0"/>
+  <!-- Белые «кривые» внутри полос -->
+  <path d="M9 30 Q 13 20, 13 30 T 17 30" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <path d="M28 24 Q 32 34, 32 24 T 36 32" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <path d="M47 28 Q 51 20, 51 30 T 55 26" stroke="#fff" stroke-width="1.5" fill="none"/>
+</svg>
