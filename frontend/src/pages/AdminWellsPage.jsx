@@ -8,7 +8,7 @@ export function AdminWellsPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(new Set());
 
-  const [shareModal, setShareModal] = useState(null); // { wells: [...] }  (одиночная или bulk)
+  const [shareModal, setShareModal] = useState(null);
   const [accessList, setAccessList] = useState([]);
 
   useEffect(() => {
@@ -27,7 +27,6 @@ export function AdminWellsPage() {
     }
   };
 
-  // Фильтрация по поиску (по имени/владельцу)
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
     if (!s) return wells;
@@ -39,7 +38,6 @@ export function AdminWellsPage() {
     );
   }, [wells, search]);
 
-  // --- Выделение ---
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((w) => selected.has(w.id));
 
@@ -66,7 +64,6 @@ export function AdminWellsPage() {
 
   const clearSelection = () => setSelected(new Set());
 
-  // --- Модалки ---
   const openSingleShare = async (well) => {
     setShareModal({ wells: [well] });
     try {
@@ -81,7 +78,7 @@ export function AdminWellsPage() {
     const wellsToShare = wells.filter((w) => selected.has(w.id));
     if (wellsToShare.length === 0) return;
     setShareModal({ wells: wellsToShare });
-    setAccessList([]); // для bulk — список текущих доступов не нужен
+    setAccessList([]);
   };
 
   const closeModal = () => {
@@ -93,16 +90,21 @@ export function AdminWellsPage() {
     <div>
       <h2>Все скважины ({filtered.length}{search && ` из ${wells.length}`})</h2>
 
-      {error && <div className="error-banner">Ошибка: {error}</div>}
+      {error && <div className="banner banner--error">Ошибка: {error}</div>}
 
       <div className="admin-toolbar">
         <input
+          className="input"
           type="text"
           placeholder="Поиск по файлу, скважине, владельцу…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button onClick={loadWells} disabled={loading}>
+        <button
+          className="btn btn--primary"
+          onClick={loadWells}
+          disabled={loading}
+        >
           {loading ? '…' : 'Обновить'}
         </button>
       </div>
@@ -110,17 +112,17 @@ export function AdminWellsPage() {
       {selected.size > 0 && (
         <div className="bulk-actions">
           <strong>Выбрано: {selected.size}</strong>
-          <button className="btn-primary" onClick={openBulkShare}>
+          <button className="btn btn--primary btn--sm" onClick={openBulkShare}>
             🔐 Расшарить выбранные
           </button>
-          <button className="btn-secondary" onClick={clearSelection}>
+          <button className="btn btn--secondary btn--sm" onClick={clearSelection}>
             Отмена
           </button>
         </div>
       )}
 
-      <div className="admin-table-wrapper">
-        <table className="admin-table">
+      <div className="table-wrapper">
+        <table className="table table--compact">
           <thead>
             <tr>
               <th style={{ width: '30px' }}>
@@ -143,10 +145,7 @@ export function AdminWellsPage() {
             {filtered.map((w) => {
               const isSelected = selected.has(w.id);
               return (
-                <tr
-                  key={w.id}
-                  className={isSelected ? 'selected-row' : ''}
-                >
+                <tr key={w.id} className={isSelected ? 'selected-row' : ''}>
                   <td>
                     <input
                       type="checkbox"
@@ -164,12 +163,12 @@ export function AdminWellsPage() {
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {w.start_depth.toFixed(0)} — {w.stop_depth.toFixed(0)} м
                   </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td style={{ whiteSpace: 'nowrap' }} className="text-sm text-muted">
                     {new Date(w.created_at).toLocaleDateString()}
                   </td>
                   <td>
                     <button
-                      className="btn-secondary"
+                      className="btn btn--secondary btn--sm"
                       onClick={() => openSingleShare(w)}
                     >
                       Расшарить
@@ -182,7 +181,7 @@ export function AdminWellsPage() {
         </table>
 
         {filtered.length === 0 && !loading && (
-          <p style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+          <p className="text-muted" style={{ padding: '20px', textAlign: 'center' }}>
             {search ? 'Ничего не найдено' : 'Скважин пока нет'}
           </p>
         )}
@@ -194,7 +193,6 @@ export function AdminWellsPage() {
           accessList={accessList}
           onClose={closeModal}
           onChanged={() => {
-            // Обновить текущие доступы для одиночного режима
             if (shareModal.wells.length === 1) {
               adminApi.listWellAccess(shareModal.wells[0].id).then((d) => {
                 setAccessList(d.items);
@@ -202,7 +200,6 @@ export function AdminWellsPage() {
             }
           }}
           onSuccess={() => {
-            // После успешного bulk — сбросить выделение и закрыть
             clearSelection();
             closeModal();
           }}
@@ -212,9 +209,6 @@ export function AdminWellsPage() {
   );
 }
 
-// ============================================================
-// Модалка: одиночная (wells.length===1) или массовая
-// ============================================================
 function ShareModal({ wells, accessList, onClose, onChanged, onSuccess }) {
   const isBulk = wells.length > 1;
   const singleWell = wells[0];
@@ -223,16 +217,10 @@ function ShareModal({ wells, accessList, onClose, onChanged, onSuccess }) {
   const [selectedUser, setSelectedUser] = useState('');
   const [permission, setPermission] = useState('read');
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(null); // { granted, skipped, failed }
+  const [result, setResult] = useState(null);
 
   useEffect(() => {
-    adminApi.listUsers({ limit: 500 })
-      .then((d) => setAllUsers(d.items))
-      .catch((err) => {
-        console.error('Failed to load users:', err);
-        alert('Не удалось загрузить список пользователей: ' +
-              (err.response?.data?.detail || err.message));
-      });
+    adminApi.listUsers({ limit: 500 }).then((d) => setAllUsers(d.items));
   }, []);
 
   const handleShare = async () => {
@@ -246,9 +234,7 @@ function ShareModal({ wells, accessList, onClose, onChanged, onSuccess }) {
           permission
         );
         setResult(res);
-        setTimeout(() => {
-          onSuccess?.();
-        }, 1500);
+        setTimeout(() => onSuccess?.(), 1500);
       } else {
         await adminApi.shareWell(singleWell.id, selectedUser, permission);
         onChanged?.();
@@ -271,7 +257,6 @@ function ShareModal({ wells, accessList, onClose, onChanged, onSuccess }) {
     }
   };
 
-  // Для одиночного режима: пользователи без доступа, не владелец
   const alreadyHas = new Set(accessList.map((a) => a.user_id));
   const availableForSingle = allUsers.filter(
     (u) => !alreadyHas.has(u.id) && u.id !== singleWell.owner_id
@@ -279,86 +264,98 @@ function ShareModal({ wells, accessList, onClose, onChanged, onSuccess }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        {isBulk ? (
-          <>
-            <h3>Массовая выдача доступов</h3>
-            <p style={{ color: '#666', fontSize: '13px' }}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal__header">
+          {isBulk ? (
+            <>Массовая выдача доступов</>
+          ) : (
+            <>Доступы к «{singleWell.well_name || singleWell.filename}»</>
+          )}
+        </div>
+
+        <div className="modal__body">
+          {isBulk ? (
+            <p className="text-muted text-sm">
               Будет выдан доступ к <strong>{wells.length}</strong> скважинам
             </p>
-          </>
-        ) : (
-          <>
-            <h3>Доступы к «{singleWell.well_name || singleWell.filename}»</h3>
-            <p style={{ color: '#666', fontSize: '13px' }}>
-              Владелец: <strong>{singleWell.owner_username}</strong>
-            </p>
+          ) : (
+            <>
+              <p className="text-muted text-sm">
+                Владелец: <strong>{singleWell.owner_username}</strong>
+              </p>
 
-            <h4>Кому уже открыт доступ:</h4>
-            {accessList.length === 0 ? (
-              <p style={{ color: '#999' }}>Пока никому.</p>
-            ) : (
-              <ul className="access-list">
-                {accessList.map((a) => (
-                  <li key={a.user_id}>
-                    <span>
-                      <strong>{a.username}</strong> ({a.email}) — {a.permission}
-                    </span>
-                    <button
-                      className="btn-danger btn-small"
-                      onClick={() => handleRevoke(a.user_id)}
-                    >
-                      ×
-                    </button>
-                  </li>
+              <h4 style={{ marginTop: '16px' }}>Кому уже открыт доступ:</h4>
+              {accessList.length === 0 ? (
+                <p className="text-subtle text-sm">Пока никому.</p>
+              ) : (
+                <ul className="access-list">
+                  {accessList.map((a) => (
+                    <li key={a.user_id}>
+                      <span>
+                        <strong>{a.username}</strong> ({a.email}) — {a.permission}
+                      </span>
+                      <button
+                        className="btn btn--danger btn--sm"
+                        onClick={() => handleRevoke(a.user_id)}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+
+          <h4>{isBulk ? 'Кому выдать доступ:' : 'Добавить доступ:'}</h4>
+
+          {result ? (
+            <div className="bulk-result">
+              <p>✅ Выдано: <strong>{result.granted.length}</strong></p>
+              {result.skipped.length > 0 && (
+                <p>⏭️ Пропущено: <strong>{result.skipped.length}</strong> (владелец)</p>
+              )}
+              {result.failed.length > 0 && (
+                <p>❌ Ошибок: <strong>{result.failed.length}</strong></p>
+              )}
+              <p className="text-muted text-xs">Закрываем…</p>
+            </div>
+          ) : (
+            <div className="share-form">
+              <select
+                className="select"
+                value={selectedUser}
+                onChange={(e) => setSelectedUser(e.target.value)}
+              >
+                <option value="">— выберите пользователя —</option>
+                {(isBulk ? allUsers : availableForSingle).map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.username} ({u.email})
+                  </option>
                 ))}
-              </ul>
-            )}
-          </>
-        )}
+              </select>
+              <select
+                className="select"
+                value={permission}
+                onChange={(e) => setPermission(e.target.value)}
+              >
+                <option value="read">read</option>
+                <option value="write">write</option>
+                <option value="owner">owner</option>
+              </select>
+              <button
+                className="btn btn--primary"
+                onClick={handleShare}
+                disabled={!selectedUser || busy}
+              >
+                {busy ? '…' : isBulk ? `Выдать (${wells.length})` : 'Выдать'}
+              </button>
+            </div>
+          )}
+        </div>
 
-        <h4>{isBulk ? 'Кому выдать доступ:' : 'Добавить доступ:'}</h4>
-
-        {result ? (
-          <div className="bulk-result">
-            <p>✅ Выдано: <strong>{result.granted.length}</strong></p>
-            {result.skipped.length > 0 && (
-              <p>⏭️ Пропущено: <strong>{result.skipped.length}</strong> (владелец)</p>
-            )}
-            {result.failed.length > 0 && (
-              <p>❌ Ошибок: <strong>{result.failed.length}</strong></p>
-            )}
-            <p style={{ color: '#666', fontSize: '12px' }}>Закрываем…</p>
-          </div>
-        ) : (
-          <div className="share-form">
-            <select
-              value={selectedUser}
-              onChange={(e) => setSelectedUser(e.target.value)}
-            >
-              <option value="">— выберите пользователя —</option>
-              {(isBulk ? allUsers : availableForSingle).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.username} ({u.email})
-                </option>
-              ))}
-            </select>
-            <select
-              value={permission}
-              onChange={(e) => setPermission(e.target.value)}
-            >
-              <option value="read">read</option>
-              <option value="write">write</option>
-              <option value="owner">owner</option>
-            </select>
-            <button onClick={handleShare} disabled={!selectedUser || busy}>
-              {busy ? '…' : isBulk ? `Выдать (${wells.length})` : 'Выдать'}
-            </button>
-          </div>
-        )}
-
-        <div style={{ textAlign: 'right', marginTop: '16px' }}>
-          <button className="btn-secondary" onClick={onClose}>
+        <div className="modal__footer">
+          <button className="btn btn--secondary" onClick={onClose}>
             Закрыть
           </button>
         </div>

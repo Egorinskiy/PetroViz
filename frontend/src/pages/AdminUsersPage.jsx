@@ -17,7 +17,10 @@ export function AdminUsersPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminApi.listUsers({ search: search || undefined, limit: 100 });
+      const data = await adminApi.listUsers({
+        search: search || undefined,
+        limit: 100,
+      });
       setUsers(data.items);
       setTotal(data.total);
     } catch (err) {
@@ -48,7 +51,9 @@ export function AdminUsersPage() {
 
   const handleToggleActive = async (user) => {
     try {
-      const updated = await adminApi.updateUser(user.id, { is_active: !user.is_active });
+      const updated = await adminApi.updateUser(user.id, {
+        is_active: !user.is_active,
+      });
       setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
       flash(`${updated.username} ${updated.is_active ? 'активирован' : 'деактивирован'}`);
     } catch (err) {
@@ -57,7 +62,7 @@ export function AdminUsersPage() {
   };
 
   const handleDelete = async (user) => {
-    if (!window.confirm(`Удалить пользователя "${user.username}"? Это действие необратимо.`)) {
+    if (!window.confirm(`Удалить пользователя "${user.username}"? Действие необратимо.`)) {
       return;
     }
     try {
@@ -76,86 +81,97 @@ export function AdminUsersPage() {
 
       <div className="admin-toolbar">
         <input
+          className="input"
           type="text"
           placeholder="Поиск по username, email, full_name…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button onClick={load} disabled={loading}>
+        <button
+          className="btn btn--primary"
+          onClick={load}
+          disabled={loading}
+        >
           {loading ? '…' : 'Обновить'}
         </button>
       </div>
 
-      {error && <div className="error-banner">Ошибка: {error}</div>}
-      {successMsg && <div className="success-banner">{successMsg}</div>}
+      {error && <div className="banner banner--error">Ошибка: {error}</div>}
+      {successMsg && <div className="banner banner--success">{successMsg}</div>}
 
-    <div className="admin-table-wrapper">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Полное имя</th>
-            <th>Роль</th>
-            <th>Активен</th>
-            <th>Last login</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => {
-            const isSelf = u.id === currentUser?.id;
-            return (
-              <tr key={u.id} className={!u.is_active ? 'inactive-row' : ''}>
-                <td>
-                  <strong>{u.username}</strong>
-                  {isSelf && <span className="badge-you">вы</span>}
-                </td>
-                <td>{u.email}</td>
-                <td>{u.full_name || '—'}</td>
-                <td>
-                  <select
-                    value={u.role}
-                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                    disabled={isSelf}
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={u.is_active}
-                    onChange={() => handleToggleActive(u)}
-                    disabled={isSelf}
-                  />
-                </td>
-                <td>
-                  {u.last_login
-                    ? new Date(u.last_login).toLocaleString()
-                    : 'никогда'}
-                </td>
-                <td>
-                  <button
-                    className="btn-danger"
-                    onClick={() => handleDelete(u)}
-                    disabled={isSelf}
-                  >
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+      <div className="table-wrapper">
+        <table className="table table--compact">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Полное имя</th>
+              <th>Роль</th>
+              <th>Активен</th>
+              <th>Last login</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => {
+              const isSelf = u.id === currentUser?.id;
+              return (
+                <tr
+                  key={u.id}
+                  className={!u.is_active ? 'inactive-row' : ''}
+                >
+                  <td>
+                    <strong>{u.username}</strong>
+                    {isSelf && <span className="badge badge--info badge-you">вы</span>}
+                  </td>
+                  <td>{u.email}</td>
+                  <td>{u.full_name || '—'}</td>
+                  <td>
+                    <select
+                      className="select"
+                      value={u.role}
+                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                      disabled={isSelf}
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={u.is_active}
+                      onChange={() => handleToggleActive(u)}
+                      disabled={isSelf}
+                    />
+                  </td>
+                  <td className="text-sm text-muted">
+                    {u.last_login
+                      ? new Date(u.last_login).toLocaleString()
+                      : 'никогда'}
+                  </td>
+                  <td>
+                    <button
+                      className="btn btn--danger btn--sm"
+                      onClick={() => handleDelete(u)}
+                      disabled={isSelf}
+                    >
+                      Удалить
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
 
-      {users.length === 0 && !loading && (
-        <p style={{ textAlign: 'center', color: '#888' }}>Нет пользователей</p>
-      )}
+        {users.length === 0 && !loading && (
+          <p className="text-muted" style={{ textAlign: 'center', padding: '20px' }}>
+            Нет пользователей
+          </p>
+        )}
+      </div>
     </div>
   );
 }

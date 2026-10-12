@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { Logo } from '../components/Logo';
 
 export function RegisterPage() {
   const [form, setForm] = useState({
@@ -24,19 +25,11 @@ export function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
-      await register(
-        form.username,
-        form.email,
-        form.password,
-        form.full_name || null
-      );
+      await register(form.username, form.email, form.password, form.full_name || null);
       setSuccess(true);
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
-      const detail =
-        err.response?.data?.detail ||
-        err.message ||
-        'Ошибка регистрации';
+      const detail = err.response?.data?.detail || err.message || 'Ошибка регистрации';
       setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
     } finally {
       setLoading(false);
@@ -46,9 +39,9 @@ export function RegisterPage() {
   if (success) {
     return (
       <div className="auth-page">
-        <div className="auth-form">
+        <div className="card auth-form">
           <h2>✅ Регистрация успешна</h2>
-          <p>Перенаправляем на страницу входа…</p>
+          <p className="text-muted">Перенаправляем на страницу входа…</p>
         </div>
       </div>
     );
@@ -56,14 +49,20 @@ export function RegisterPage() {
 
   return (
     <div className="auth-page">
-      <form className="auth-form" onSubmit={handleSubmit}>
+      <form className="card auth-form" onSubmit={handleSubmit}>
+        <div className="auth-logo">
+          <Logo variant="full" size={32} />
+        </div>
+
         <h1>Регистрация</h1>
 
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="banner banner--error">{error}</div>}
 
-        <label>
-          Имя пользователя *
+        <div className="auth-field">
+          <label className="label" htmlFor="reg-username">Имя пользователя *</label>
           <input
+            id="reg-username"
+            className="input"
             type="text"
             value={form.username}
             onChange={handleChange('username')}
@@ -72,21 +71,25 @@ export function RegisterPage() {
             maxLength={64}
             autoFocus
           />
-        </label>
+        </div>
 
-        <label>
-          Email *
+        <div className="auth-field">
+          <label className="label" htmlFor="reg-email">Email *</label>
           <input
+            id="reg-email"
+            className="input"
             type="email"
             value={form.email}
             onChange={handleChange('email')}
             required
           />
-        </label>
+        </div>
 
-        <label>
-          Пароль * (минимум 8 символов)
+        <div className="auth-field">
+          <label className="label" htmlFor="reg-password">Пароль * (минимум 8 символов)</label>
           <input
+            id="reg-password"
+            className="input"
             type="password"
             value={form.password}
             onChange={handleChange('password')}
@@ -94,18 +97,24 @@ export function RegisterPage() {
             minLength={8}
             autoComplete="new-password"
           />
-        </label>
+        </div>
 
-        <label>
-          Полное имя (опционально)
+        <div className="auth-field">
+          <label className="label" htmlFor="reg-fullname">Полное имя (опционально)</label>
           <input
+            id="reg-fullname"
+            className="input"
             type="text"
             value={form.full_name}
             onChange={handleChange('full_name')}
           />
-        </label>
+        </div>
 
-        <button type="submit" disabled={loading}>
+        <button
+          type="submit"
+          className="btn btn--primary btn--block"
+          disabled={loading}
+        >
           {loading ? 'Создание…' : 'Зарегистрироваться'}
         </button>
 

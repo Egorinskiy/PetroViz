@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { Logo } from '../components/Logo';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
@@ -21,10 +22,7 @@ export function LoginPage() {
       await login(username, password);
       navigate(from, { replace: true });
     } catch (err) {
-      const detail =
-        err.response?.data?.detail ||
-        err.message ||
-        'Не удалось войти';
+      const detail = err.response?.data?.detail || err.message || 'Не удалось войти';
       setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
     } finally {
       setLoading(false);
@@ -33,14 +31,20 @@ export function LoginPage() {
 
   return (
     <div className="auth-page">
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <h1>Вход в PetroViz</h1>
+      <form className="card auth-form" onSubmit={handleSubmit}>
+        <div className="auth-logo">
+          <Logo variant="full" size={36} />
+        </div>
 
-        {error && <div className="auth-error">{error}</div>}
+        <h1>Вход</h1>
 
-        <label>
-          Имя пользователя
+        {error && <div className="banner banner--error">{error}</div>}
+
+        <div className="auth-field">
+          <label className="label" htmlFor="username">Имя пользователя</label>
           <input
+            id="username"
+            className="input"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -48,20 +52,26 @@ export function LoginPage() {
             autoFocus
             autoComplete="username"
           />
-        </label>
+        </div>
 
-        <label>
-          Пароль
+        <div className="auth-field">
+          <label className="label" htmlFor="password">Пароль</label>
           <input
+            id="password"
+            className="input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
           />
-        </label>
+        </div>
 
-        <button type="submit" disabled={loading}>
+        <button
+          type="submit"
+          className="btn btn--primary btn--block"
+          disabled={loading}
+        >
           {loading ? 'Вход…' : 'Войти'}
         </button>
 

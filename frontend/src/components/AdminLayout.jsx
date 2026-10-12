@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { UserMenu } from './UserMenu';
+import { Logo } from './Logo';
 
 export function AdminLayout() {
   return (
     <>
       <div className="topbar">
-        <h1 className="logo">PetroViz</h1>
+        <Logo variant="full" size={22} className="topbar-logo" />
         <span className="admin-badge">Админка</span>
         <UserMenu />
       </div>

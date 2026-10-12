@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileUpload } from './FileUpload';
 import { ScaleSelector } from './ScaleSelector';
+import { Logo } from './Logo';
 
 export function Topbar({
   fileName,
@@ -12,7 +13,7 @@ export function Topbar({
 }) {
   return (
     <div className="topbar">
-      <h1 className="logo">PetroViz</h1>
+      <Logo variant="full" size={24} className="topbar-logo" />
       <FileUpload fileName={fileName} onFileSelect={onFileSelect} />
       {showScale && <ScaleSelector value={scale} onChange={onScaleChange} />}
       {rightSlot}
