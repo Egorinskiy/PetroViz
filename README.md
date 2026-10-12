@@ -35,6 +35,14 @@
 | Frontend | React 18, Vite, d3.js, axios, react-router-dom |
 | Инфра    | Docker, docker-compose |
 
+### Дизайн-система
+
+- **Шрифты:** Geist Sans + Geist Mono (variable, self-hosted).
+- **Токены:** `frontend/src/design/tokens.css` — цвета, типографика, отступы, тени.
+- **Компоненты:** `frontend/src/design/components.css` — .btn, .input, .table, .badge, .banner, .modal.
+- **Логотип:** кроссовер RHOB+NPHI в SVG (`public/logo-icon.svg`) + монограмма PV (`public/logo-pv.svg`).
+- **Правила:** см. `DESIGN.md`.
+
 ## Структура
 
 - `backend/` — FastAPI + lasio + SQLAlchemy + Alembic
@@ -137,6 +145,7 @@ pytest tests/ -v
 - [x] **JWT-auth + RBAC:** роли `admin` / `geophysicist` / `viewer`
 - [x] **Admin panel:** пользователи, массовая выдача доступов к скважинам
 - [x] **Sidebar «Мои скважины»:** свои + shared, выбор, удаление
+- [x] **Дизайн-система:** токены, компоненты, шрифты Geist, логотип
 
 ### 🚧 В работе
 
