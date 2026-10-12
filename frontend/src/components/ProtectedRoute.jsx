@@ -8,22 +8,22 @@ export function ProtectedRoute({ children, requireAdmin = false }) {
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        Загрузка…
+      <div className="loading-screen">
+        <div className="spinner spinner--lg"></div>
+        <p className="text-muted">Загрузка…</p>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    // Запоминаем, откуда пришёл — чтобы вернуть после логина
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (requireAdmin && !isAdmin) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#c62828' }}>
+      <div className="loading-screen">
         <h2>403 — Доступ запрещён</h2>
-        <p>Эта страница доступна только администраторам.</p>
+        <p className="text-muted">Эта страница доступна только администраторам.</p>
       </div>
     );
   }
