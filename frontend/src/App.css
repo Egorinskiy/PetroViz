@@ -83,7 +83,7 @@
 }
 
 /* ============================================================================
-   CURVES BAR (свёрнутая строка)
+   CURVES BAR / PANEL
    ============================================================================ */
 
 .curves-bar {
@@ -111,36 +111,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--color-text);
-  font-family: var(--font-mono);
   font-size: var(--fs-sm);
 }
 
 .curves-bar-count {
-  color: var(--color-text-muted);
-  font-size: var(--fs-sm);
   flex-shrink: 0;
 }
-
-.curves-bar-toggle {
-  padding: 3px var(--space-3);
-  font-size: var(--fs-sm);
-  background: #fff;
-  color: var(--color-accent-blue);
-  border: 1px solid var(--color-accent-blue);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background var(--transition-base), color var(--transition-base);
-}
-
-.curves-bar-toggle:hover {
-  background: var(--color-accent-blue);
-  color: #fff;
-}
-
-/* ============================================================================
-   CURVES PANEL (развёрнутая панель)
-   ============================================================================ */
 
 .curves-panel {
   margin-bottom: var(--space-2);
@@ -180,7 +156,7 @@
 
 .checkbox-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 2px var(--space-2);
   max-height: 150px;
   overflow-y: auto;

@@ -40,11 +40,13 @@ export function WellsSidebar({
         <div className="wells-sidebar-title">
           Мои скважины ({wells.length})
           {sharedCount > 0 && (
-            <span className="shared-count">+{sharedCount} shared</span>
+            <span className="badge badge--shared shared-count">
+              +{sharedCount} shared
+            </span>
           )}
         </div>
         <button
-          className="wells-sidebar-refresh"
+          className="btn btn--ghost btn--sm wells-sidebar-refresh"
           onClick={reload}
           disabled={loading}
           title="Обновить список"
@@ -55,7 +57,7 @@ export function WellsSidebar({
 
       <input
         type="text"
-        className="wells-sidebar-search"
+        className="input wells-sidebar-search"
         placeholder="Поиск…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -98,7 +100,7 @@ export function WellsSidebar({
                 <div className="well-item-name" title={w.well_name || w.filename}>
                   {w.well_name || w.filename}
                 </div>
-                <div className="well-item-meta">
+                <div className="well-item-meta font-mono">
                   {w.start_depth.toFixed(0)}—{w.stop_depth.toFixed(0)} м
                   {w.is_owner ? '' : ' · shared'}
                 </div>

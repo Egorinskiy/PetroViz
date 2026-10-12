@@ -28,7 +28,7 @@ export function CurveCheckbox({
         disabled={disabled}
         onChange={() => onToggle(curve)}
       />{' '}
-      {shortLabel}
+      <span className="font-mono">{shortLabel}</span>
     </label>
   );
 }
