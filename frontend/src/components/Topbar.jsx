@@ -10,11 +10,27 @@ export function Topbar({
   onScaleChange,
   showScale,
   rightSlot = null,
+  showComputations = false,
+  computationsOpen = false,
+  onToggleComputations,
 }) {
   return (
     <div className="topbar">
-      <Logo variant="full" size={24} className="topbar-logo" />
+      <Logo variant="full" size={28} className="topbar-logo" />
       <FileUpload fileName={fileName} onFileSelect={onFileSelect} />
+
+      {showComputations && (
+        <button
+          className={`btn btn--sm ${
+            computationsOpen ? 'btn--primary' : 'btn--secondary'
+          }`}
+          onClick={onToggleComputations}
+          title="Панель петрофизических расчётов"
+        >
+          📊 Расчёты
+        </button>
+      )}
+
       {showScale && <ScaleSelector value={scale} onChange={onScaleChange} />}
       {rightSlot}
     </div>

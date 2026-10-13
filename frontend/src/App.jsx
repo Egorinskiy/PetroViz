@@ -1,22 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { apiClient } from './api/axiosClient';
-import { useAuth } from './hooks/useAuth';
-import { useWellList } from './hooks/useWellList';
-import { WellsSidebar } from './components/WellsSidebar';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useWellData } from './hooks/useWellData';
+import { useWellList } from './hooks/useWellList';
+import { useAuth } from './hooks/useAuth';
+import { apiClient } from './api/axiosClient';
 import { DEFAULT_SCALE } from './constants/depthScales';
 import { Topbar } from './components/Topbar';
 import { CurvesBar } from './components/CurvesBar';
 import { CurvesPanel } from './components/CurvesPanel';
+import { WellsSidebar } from './components/WellsSidebar';
+import { ComputationsPanel } from './components/ComputationsPanel';
 import WellLogViewer from './components/WellLogViewer';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserMenu } from './components/UserMenu';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { AdminLayout } from './components/AdminLayout';
-import { AdminUsersPage } from './pages/AdminUsersPage';
-import { AdminWellsPage } from './pages/AdminWellsPage';
 import './App.css';
 
 function MainPage() {
@@ -33,37 +31,37 @@ function MainPage() {
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [panelOpen, setPanelOpen] = useState(false);
 
+  // --- Состояние панели расчётов ---
+  const [computationsOpen, setComputationsOpen] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+
   const MAX_CURVES = 8;
   const debounceRef = useRef(null);
 
   // --- Загрузка данных выбранной скважины ---
-  const fetchCurveData = useCallback(
-    async (wellId, curves) => {
-      if (!wellId || curves.length === 0) {
-        setWellData(null);
-        return;
-      }
-      setDataLoading(true);
-      setDataError(null);
-      try {
-        const response = await apiClient.get(`/wells/${wellId}/data`, {
-          params: {
-            curves: curves.join(','),
-            mode: 'pixel',
-            pixel_width: 900,
-          },
-        });
-        setWellData(response.data);
-      } catch (err) {
-        setDataError(err.response?.data?.detail || err.message);
-      } finally {
-        setDataLoading(false);
-      }
-    },
-    []
-  );
+  const fetchCurveData = useCallback(async (wellId, curves) => {
+    if (!wellId || curves.length === 0) {
+      setWellData(null);
+      return;
+    }
+    setDataLoading(true);
+    setDataError(null);
+    try {
+      const response = await apiClient.get(`/wells/${wellId}/data`, {
+        params: {
+          curves: curves.join(','),
+          mode: 'pixel',
+          pixel_width: 900,
+        },
+      });
+      setWellData(response.data);
+    } catch (err) {
+      setDataError(err.response?.data?.detail || err.message);
+    } finally {
+      setDataLoading(false);
+    }
+  }, []);
 
-  // Auto-refresh при смене выбора
   useEffect(() => {
     if (!activeWellId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -85,16 +83,18 @@ function MainPage() {
     });
     setCurveUnits(units);
 
-    // Автовыбор
     const preferred = ['GR', 'RHOB', 'NPHI', 'DTC'];
     const available = well.curves.map((c) => c.mnemonic);
     const auto = preferred.filter((p) => available.includes(p));
     const fallback = auto.length > 0 ? auto : available.slice(1, 4);
     setSelectedCurves(fallback);
 
-    // Сброс данных
     setWellData(null);
+    setPreviewData(null); // сбрасываем расчёт при смене скважины
   };
+
+  // --- Активная скважина (для панели расчётов) ---
+  const activeWell = wells.find((w) => w.well_id === activeWellId) || null;
 
   // --- Загрузка нового файла ---
   const handleUpload = async (file) => {
@@ -110,7 +110,6 @@ function MainPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       await reload();
-      // Автоматически выбрать загруженную скважину
       const newWellId = response.data.well_id;
       const newWell = {
         well_id: newWellId,
@@ -133,6 +132,7 @@ function MainPage() {
       if (well.well_id === activeWellId) {
         setActiveWellId(null);
         setWellData(null);
+        setPreviewData(null);
       }
       await reload();
     } catch (err) {
@@ -158,6 +158,9 @@ function MainPage() {
         onScaleChange={setScale}
         showScale={!!wellData}
         rightSlot={<UserMenu />}
+        showComputations={!!activeWellId}
+        computationsOpen={computationsOpen}
+        onToggleComputations={() => setComputationsOpen((o) => !o)}
       />
 
       <div className="main-layout">
@@ -172,7 +175,9 @@ function MainPage() {
 
         <div className="main-content">
           {wellsError && (
-            <div className="error-banner">Ошибка загрузки списка: {wellsError}</div>
+            <div className="banner banner--error">
+              Ошибка загрузки списка: {wellsError}
+            </div>
           )}
 
           {!activeWellId && (
@@ -180,7 +185,7 @@ function MainPage() {
               <h2>Добро пожаловать, {user?.username}!</h2>
               <p>Выберите скважину слева или загрузите новый LAS-файл.</p>
               {wells.length === 0 && (
-                <p style={{ color: '#888' }}>
+                <p className="text-muted">
                   У вас пока нет скважин. Начните с загрузки LAS.
                 </p>
               )}
@@ -191,11 +196,10 @@ function MainPage() {
             <>
               <div className="well-header">
                 <h2>
-                  {wells.find((w) => w.well_id === activeWellId)?.well_name ||
-                    wells.find((w) => w.well_id === activeWellId)?.filename}
+                  {activeWell?.well_name || activeWell?.filename}
                 </h2>
-                {!wells.find((w) => w.well_id === activeWellId)?.is_owner && (
-                  <span className="shared-badge">🌐 Расшаренная</span>
+                {activeWell && !activeWell.is_owner && (
+                  <span className="badge badge--shared">🌐 Расшаренная</span>
                 )}
               </div>
 
@@ -215,7 +219,7 @@ function MainPage() {
               )}
 
               {dataError && (
-                <div className="error-banner">Ошибка: {dataError}</div>
+                <div className="banner banner--error">Ошибка: {dataError}</div>
               )}
 
               {wellData && (
@@ -227,6 +231,7 @@ function MainPage() {
                     )}
                     units={curveUnits}
                     scale={scale}
+                    previewData={previewData}
                   />
                   {dataLoading && (
                     <div className="loading-overlay">
@@ -245,6 +250,15 @@ function MainPage() {
             </>
           )}
         </div>
+
+        {/* --- Панель расчётов (боковая) --- */}
+        {computationsOpen && (
+          <ComputationsPanel
+            well={activeWell}
+            onPreviewChange={setPreviewData}
+            onClose={() => setComputationsOpen(false)}
+          />
+        )}
       </div>
     </>
   );
@@ -264,21 +278,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-          {/* Admin-роуты */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/admin/users" replace />} />
-            <Route path="users" element={<AdminUsersPage />} />
-            <Route path="wells" element={<AdminWellsPage />} />
-          </Route>
-
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

@@ -11,6 +11,7 @@ const WellLogViewer = ({
   curvesToPlot,
   units = {},
   scale = DEFAULT_SCALE,
+  previewData = null,
 }) => {
   const svgRef = useRef(null);
 
@@ -18,6 +19,9 @@ const WellLogViewer = ({
     if (!wellData || !curvesToPlot || curvesToPlot.length === 0) return;
 
     const tracks = buildTracks(curvesToPlot);
+    const previewCurvesList = previewData?.curves
+      ? Object.entries(previewData.curves)
+      : [];
 
     // Геометрия
     const depthExtent = d3.extent(wellData.depth);
@@ -27,7 +31,8 @@ const WellLogViewer = ({
     const margin = { top: 25, right: 30, bottom: 130, left: 80 };
     const trackWidth = 150;
     const trackGap = 25;
-    const innerWidth = tracks.length * (trackWidth + trackGap);
+    const totalTracks = tracks.length + previewCurvesList.length;
+    const innerWidth = totalTracks * (trackWidth + trackGap);
     const totalWidth = innerWidth + margin.left + margin.right;
     const totalHeight = innerHeight + margin.top + margin.bottom;
 
@@ -39,9 +44,9 @@ const WellLogViewer = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // clipPath для каждого трека
+    // clipPath для каждого трека (включая preview)
     const defs = svg.append('defs');
-    tracks.forEach((_, idx) => {
+    for (let idx = 0; idx < totalTracks; idx++) {
       const xOffset = idx * (trackWidth + trackGap);
       defs
         .append('clipPath')
@@ -51,7 +56,7 @@ const WellLogViewer = ({
         .attr('y', 0)
         .attr('width', trackWidth)
         .attr('height', innerHeight);
-    });
+    }
 
     // Шкала глубины
     const y = d3.scaleLinear().domain(depthExtent).range([0, innerHeight]);
@@ -78,7 +83,9 @@ const WellLogViewer = ({
       .style('font-weight', 'bold')
       .text('Глубина (м)');
 
-    // Треки
+    // ========================================================================
+    // Основные треки (каротаж)
+    // ========================================================================
     tracks.forEach((track, trackIdx) => {
       const xOffset = trackIdx * (trackWidth + trackGap);
       const clipId = `url(#clip-track-${trackIdx})`;
@@ -99,7 +106,101 @@ const WellLogViewer = ({
         drawSingleTrack(g, track, xOffset, trackWidth, innerHeight, y, wellData, clipId, units);
       }
     });
-  }, [wellData, curvesToPlot, units, scale]);
+
+    // ========================================================================
+    // Preview-треки (петрофизический расчёт)
+    // ========================================================================
+    const previewDepths = previewData?.depth || [];
+
+    previewCurvesList.forEach(([mnemonic, curve], previewIdx) => {
+      const trackIdx = tracks.length + previewIdx;
+      const xOffset = trackIdx * (trackWidth + trackGap);
+      const clipId = `url(#clip-track-${trackIdx})`;
+
+      // Рамка
+      g.append('rect')
+        .attr('x', xOffset)
+        .attr('y', 0)
+        .attr('width', trackWidth)
+        .attr('height', innerHeight)
+        .attr('fill', 'none')
+        .attr('stroke', '#aaa');
+
+      const rawValues = curve.values || [];
+      const validValues = rawValues.filter((v) => v != null && isFinite(v));
+
+      if (validValues.length === 0) {
+        g.append('text')
+          .attr('x', xOffset + trackWidth / 2)
+          .attr('y', innerHeight / 2)
+          .attr('text-anchor', 'middle')
+          .style('fill', '#999')
+          .style('font-size', '12px')
+          .text(`${mnemonic}: нет данных`);
+        return;
+      }
+
+      const upper = mnemonic.toUpperCase();
+      const isNormalized =
+        upper.startsWith('VSH') ||
+        upper.startsWith('SW') ||
+        upper.startsWith('PHI');
+
+      // Цвет: VSH — зелёный (как GR), остальные — красный
+      const color = upper.startsWith('VSH') ? '#388e3c' : '#C62828';
+
+      // Ось X: [0, 1] для нормированных, иначе по диапазону
+      let x;
+      if (isNormalized) {
+        x = d3.scaleLinear()
+          .domain([0, 1])
+          .range([xOffset, xOffset + trackWidth]);
+      } else {
+        const extent = d3.extent(validValues);
+        x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
+      }
+
+      // Ось X снизу
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
+        .selectAll('text')
+        .style('font-size', '9px');
+
+      // Вертикальная сетка
+      g.append('g')
+        .attr('transform', `translate(0,0)`)
+        .call(d3.axisTop(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
+        .selectAll('line')
+        .style('stroke', '#e0e0e0');
+
+      // ⚠️ ВАЖНО: previewDepths[i] вместо wellData.depth[i]
+      const line = d3.line()
+        .defined((d, i) => d != null && isFinite(d) && previewDepths[i] != null)
+        .x((d) => x(d))
+        .y((_, i) => y(previewDepths[i]));
+
+      g.append('path')
+        .datum(rawValues)
+        .attr('fill', 'none')
+        .attr('stroke', color)
+        .attr('stroke-width', 1.5)
+        .attr('d', line)
+        .attr('clip-path', clipId);
+
+      // Подпись
+      g.append('text')
+        .attr('x', xOffset + trackWidth / 2)
+        .attr('y', innerHeight + 45)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '11px')
+        .style('font-weight', 'bold')
+        .style('fill', color)
+        .text(mnemonic)
+        .append('title')
+        .text(`Расчёт: ${mnemonic} (${validValues.length} из ${rawValues.length} точек)`);
+    });
+  }, [wellData, curvesToPlot, units, scale, previewData]);
 
   return (
     <div style={{ marginTop: '5px' }}>
