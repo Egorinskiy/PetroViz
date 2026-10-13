@@ -44,7 +44,7 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://petroviz:petroviz_dev_password@localhost:5432/petroviz"
     )
     test_database_url: str = (
-        "postgresql+asyncpg://petroviz:petroviz_dev_password@localhost:5433/petroviz_test"
+        "postgresql+asyncpg://petroviz:petroviz_dev_password@localhost:5432/petroviz_test"
     )
 
     # --- Auth ---
