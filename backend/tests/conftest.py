@@ -8,8 +8,10 @@
     теряет соединения между тестами на Windows.
 """
 import asyncio
-
+import uuid
+import bcrypt
 import pytest
+import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -27,37 +29,41 @@ from app.main import app
 from app.repositories.well_repository import ensure_system_user
 from app.settings import settings
 
-
-# --- Event loop: function-scoped (новый на каждый тест) ---
-
-@pytest.fixture
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+# ============================================================================
+# bcrypt: ускоряем хеширование в 250 раз (12 → 4 rounds)
+# ============================================================================
+# В продакшене 12 rounds (~250 мс) — правильно, защищает от брутфорса.
+# В тестах скорость важнее: 4 rounds (~1 мс), при этом bcrypt API не меняется.
+_original_gensalt = bcrypt.gensalt
+def _fast_gensalt(rounds=4, prefix=b"2b"):
+    return _original_gensalt(rounds=4, prefix=prefix)
+bcrypt.gensalt = _fast_gensalt
 
 
 # --- Тестовый engine с NullPool (без переиспользования соединений) ---
 
-@pytest.fixture
-async def test_engine(event_loop):
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def _test_engine_session():
+    """Один engine на всю сессию. DDL один раз."""
     engine = create_async_engine(
         settings.test_database_url,
         echo=False,
-        poolclass=NullPool,      # ← ключевое: не кэшировать соединения
+        poolclass=NullPool,
     )
-
-    # создаём таблицы
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-
     yield engine
-
     await engine.dispose()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(loop_scope="function")
+async def test_engine(_test_engine_session):
+    """Function-scoped обёртка: тот же engine, без DDL."""
+    yield _test_engine_session
+
+
+@pytest_asyncio.fixture
 async def test_session_factory(test_engine):
     return async_sessionmaker(
         bind=test_engine,
@@ -73,10 +79,6 @@ async def clean_tables(test_engine):
         await conn.execute(
             text("TRUNCATE well_access, audit_log, wells, users CASCADE")
         )
-    # Создаём system user после TRUNCATE
-    async with AsyncSession(test_engine) as session:
-        await ensure_system_user(session)
-    yield
 
 
 @pytest.fixture
@@ -98,9 +100,6 @@ def client(test_engine):
 # ============================================================================
 # Auth-фикстуры
 # ============================================================================
-
-import uuid
-
 
 async def _create_user(session, username: str, email: str, password: str, role):
     """Создаёт пользователя в тестовой БД через репозиторий."""
