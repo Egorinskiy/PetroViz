@@ -12,6 +12,7 @@ const WellLogViewer = ({
   units = {},
   scale = DEFAULT_SCALE,
   previewData = null,
+  savedTracks = [],
 }) => {
   const svgRef = useRef(null);
 
@@ -19,9 +20,28 @@ const WellLogViewer = ({
     if (!wellData || !curvesToPlot || curvesToPlot.length === 0) return;
 
     const tracks = buildTracks(curvesToPlot);
-    const previewCurvesList = previewData?.curves
-      ? Object.entries(previewData.curves)
-      : [];
+    // Объединяем live-preview и сохранённые треки в один список
+    const previewCurvesList = [];
+    if (previewData?.curves) {
+      for (const [mnemonic, curve] of Object.entries(previewData.curves)) {
+        previewCurvesList.push({
+          mnemonic,
+          values: curve.values,
+          depth: previewData.depth,
+          isSaved: false,
+          key: `live-${mnemonic}`,
+        });
+      }
+    }
+    for (const t of (savedTracks || [])) {
+      previewCurvesList.push({
+        mnemonic: t.label || t.mnemonic,
+        values: t.values,
+        depth: t.depth,
+        isSaved: true,
+        key: `saved-${t.id}`,
+      });
+    }
 
     // Геометрия
     const depthExtent = d3.extent(wellData.depth);
@@ -112,95 +132,79 @@ const WellLogViewer = ({
     // ========================================================================
     const previewDepths = previewData?.depth || [];
 
-    previewCurvesList.forEach(([mnemonic, curve], previewIdx) => {
-      const trackIdx = tracks.length + previewIdx;
-      const xOffset = trackIdx * (trackWidth + trackGap);
-      const clipId = `url(#clip-track-${trackIdx})`;
+    previewCurvesList.forEach((item, previewIdx) => {
+          const { mnemonic, values, depth: trackDepth, isSaved, key } = item;
+          const trackIdx = tracks.length + previewIdx;
+          const xOffset = trackIdx * (trackWidth + trackGap);
+          const clipId = `url(#clip-track-${trackIdx})`;
 
-      // Рамка
-      g.append('rect')
-        .attr('x', xOffset)
-        .attr('y', 0)
-        .attr('width', trackWidth)
-        .attr('height', innerHeight)
-        .attr('fill', 'none')
-        .attr('stroke', '#aaa');
+          // Рамка
+          g.append('rect')
+            .attr('x', xOffset).attr('y', 0)
+            .attr('width', trackWidth).attr('height', innerHeight)
+            .attr('fill', 'none').attr('stroke', isSaved ? '#1565c0' : '#aaa');
 
-      const rawValues = curve.values || [];
-      const validValues = rawValues.filter((v) => v != null && isFinite(v));
+          const validValues = (values || []).filter((v) => v != null && isFinite(v));
 
-      if (validValues.length === 0) {
-        g.append('text')
-          .attr('x', xOffset + trackWidth / 2)
-          .attr('y', innerHeight / 2)
-          .attr('text-anchor', 'middle')
-          .style('fill', '#999')
-          .style('font-size', '12px')
-          .text(`${mnemonic}: нет данных`);
-        return;
-      }
+          if (validValues.length === 0) {
+            g.append('text')
+              .attr('x', xOffset + trackWidth / 2)
+              .attr('y', innerHeight / 2)
+              .attr('text-anchor', 'middle')
+              .style('fill', '#999').style('font-size', '12px')
+              .text(`${mnemonic}: нет данных`);
+            return;
+          }
 
-      const upper = mnemonic.toUpperCase();
-      const isNormalized =
-        upper.startsWith('VSH') ||
-        upper.startsWith('SW') ||
-        upper.startsWith('PHI');
+          const upper = mnemonic.toUpperCase();
+          const isNormalized =
+            upper.startsWith('VSH') || upper.startsWith('SW') || upper.startsWith('PHI');
 
-      // Цвет: VSH — зелёный (как GR), остальные — красный
-      const color = upper.startsWith('VSH') ? '#388e3c' : '#C62828';
+          // Цвет: live — зелёный, saved — синий; остальные — красный
+          const color = isSaved ? '#1565c0' : (upper.startsWith('VSH') ? '#388e3c' : '#C62828');
 
-      // Ось X: [0, 1] для нормированных, иначе по диапазону
-      let x;
-      if (isNormalized) {
-        x = d3.scaleLinear()
-          .domain([0, 1])
-          .range([xOffset, xOffset + trackWidth]);
-      } else {
-        const extent = d3.extent(validValues);
-        x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
-      }
+          let x;
+          if (isNormalized) {
+            x = d3.scaleLinear().domain([0, 1]).range([xOffset, xOffset + trackWidth]);
+          } else {
+            const extent = d3.extent(validValues);
+            x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
+          }
 
-      // Ось X снизу
-      g.append('g')
-        .attr('transform', `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
-        .selectAll('text')
-        .style('font-size', '9px');
+          g.append('g')
+            .attr('transform', `translate(0,${innerHeight})`)
+            .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
+            .selectAll('text').style('font-size', '9px');
 
-      // Вертикальная сетка
-      g.append('g')
-        .attr('transform', `translate(0,0)`)
-        .call(d3.axisTop(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
-        .selectAll('line')
-        .style('stroke', '#e0e0e0');
+          g.append('g')
+            .attr('transform', `translate(0,0)`)
+            .call(d3.axisTop(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
+            .selectAll('line').style('stroke', '#e0e0e0');
 
-      // ⚠️ ВАЖНО: previewDepths[i] вместо wellData.depth[i]
-      const line = d3.line()
-        .defined((d, i) => d != null && isFinite(d) && previewDepths[i] != null)
-        .x((d) => x(d))
-        .y((_, i) => y(previewDepths[i]));
+          const line = d3.line()
+            .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
+            .x((d) => x(d))
+            .y((_, i) => y(trackDepth[i]));
 
-      g.append('path')
-        .datum(rawValues)
-        .attr('fill', 'none')
-        .attr('stroke', color)
-        .attr('stroke-width', 1.5)
-        .attr('d', line)
-        .attr('clip-path', clipId);
+          g.append('path')
+            .datum(values)
+            .attr('fill', 'none')
+            .attr('stroke', color)
+            .attr('stroke-width', 1.5)
+            .attr('d', line)
+            .attr('clip-path', clipId);
 
-      // Подпись
-      g.append('text')
-        .attr('x', xOffset + trackWidth / 2)
-        .attr('y', innerHeight + 45)
-        .attr('text-anchor', 'middle')
-        .style('font-size', '11px')
-        .style('font-weight', 'bold')
-        .style('fill', color)
-        .text(mnemonic)
-        .append('title')
-        .text(`Расчёт: ${mnemonic} (${validValues.length} из ${rawValues.length} точек)`);
-    });
-  }, [wellData, curvesToPlot, units, scale, previewData]);
+          g.append('text')
+            .attr('x', xOffset + trackWidth / 2)
+            .attr('y', innerHeight + 45)
+            .attr('text-anchor', 'middle')
+            .style('font-size', '11px').style('font-weight', 'bold')
+            .style('fill', color)
+            .text(isSaved ? `💾 ${mnemonic}` : mnemonic)
+            .append('title')
+            .text(`Расчёт: ${mnemonic} (${validValues.length} из ${values.length} точек)`);
+        });
+  }, [wellData, curvesToPlot, units, scale, previewData, savedTracks]);
 
   return (
     <div style={{ marginTop: '5px' }}>

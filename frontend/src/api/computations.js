@@ -25,4 +25,35 @@ export const computationsApi = {
         params,
       })
       .then((r) => r.data),
+
+  /**
+   * Сохраняет текущий расчёт (backend пересчитывает preview и сохраняет).
+   * @returns {Promise<ComputationMeta>}
+   */
+  save: (wellId, payload) =>
+    apiClient
+      .post(`/wells/${wellId}/computations`, payload)
+      .then((r) => r.data),
+
+  /**
+   * Список сохранённых расчётов для скважины.
+   * @returns {Promise<ComputationMeta[]>}
+   */
+  listForWell: (wellId) =>
+    apiClient
+      .get(`/wells/${wellId}/computations`)
+      .then((r) => r.data.items),
+
+  /**
+   * Полные данные сохранённого расчёта.
+   * @returns {Promise<{id, output_mnemonic, method, depth, values}>}
+   */
+  getData: (compId) =>
+    apiClient.get(`/computations/${compId}`).then((r) => r.data),
+
+  /**
+   * Удаляет сохранённый расчёт.
+   */
+  remove: (compId) =>
+    apiClient.delete(`/computations/${compId}`),
 };

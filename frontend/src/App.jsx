@@ -15,6 +15,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserMenu } from './components/UserMenu';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { computationsApi } from './api/computations';
 import './App.css';
 
 function MainPage() {
@@ -34,8 +35,9 @@ function MainPage() {
   // --- Состояние панели расчётов ---
   const [computationsOpen, setComputationsOpen] = useState(false);
   const [previewData, setPreviewData] = useState(null);
+  const [savedTracks, setSavedTracks] = useState([]);
 
-  const MAX_CURVES = 8;
+  const MAX_CURVES = 12;
   const debounceRef = useRef(null);
 
   // --- Загрузка данных выбранной скважины ---
@@ -91,6 +93,7 @@ function MainPage() {
 
     setWellData(null);
     setPreviewData(null); // сбрасываем расчёт при смене скважины
+    setSavedTracks([]); // сбрасываем сохранённые треки
   };
 
   // --- Активная скважина (для панели расчётов) ---
@@ -133,6 +136,7 @@ function MainPage() {
         setActiveWellId(null);
         setWellData(null);
         setPreviewData(null);
+        setSavedTracks([]);
       }
       await reload();
     } catch (err) {
@@ -140,6 +144,33 @@ function MainPage() {
       alert(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }
   };
+        // --- Загрузка сохранённого расчёта на трек ---
+    const handleShowSaved = useCallback(async (compId) => {
+      try {
+        const data = await computationsApi.getData(compId);
+        setSavedTracks((prev) => {
+          if (prev.some((t) => t.id === compId)) return prev;
+          return [
+            ...prev,
+            {
+              id: compId,
+              mnemonic: data.output_mnemonic,
+              label: data.output_mnemonic, // можно расширить позже — дата/метод
+              depth: data.depth,
+              values: data.values,
+              method: data.method,
+            },
+          ];
+        });
+      } catch (err) {
+        const detail = err.response?.data?.detail || err.message;
+        alert(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      }
+    }, []);
+
+    const handleHideSaved = useCallback((compId) => {
+      setSavedTracks((prev) => prev.filter((t) => t.id !== compId));
+    }, []);
 
   const toggleCurve = (curve) => {
     setSelectedCurves((prev) => {
@@ -232,6 +263,7 @@ function MainPage() {
                     units={curveUnits}
                     scale={scale}
                     previewData={previewData}
+                    savedTracks={savedTracks}
                   />
                   {dataLoading && (
                     <div className="loading-overlay">
@@ -257,6 +289,9 @@ function MainPage() {
             well={activeWell}
             onPreviewChange={setPreviewData}
             onClose={() => setComputationsOpen(false)}
+            savedTracks={savedTracks}
+            onShowSaved={handleShowSaved}
+            onHideSaved={handleHideSaved}
           />
         )}
       </div>
