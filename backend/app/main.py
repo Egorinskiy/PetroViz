@@ -8,6 +8,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.admin import router as admin_router
+from .api.computations import router as computations_router
 from .error_handlers import register_error_handlers
 from .exceptions import (WellNotFoundError)
 from .services.bootstrap import ensure_admin_user
@@ -31,7 +32,6 @@ from .repositories.well_repository import (
 from .api.auth import router as auth_router
 
 logger = logging.getLogger("petroviz")
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -68,7 +68,7 @@ register_error_handlers(app)
 # Роутеры
 app.include_router(auth_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
-
+app.include_router(computations_router, prefix="/api")
 
 class DownsampleMode(str, Enum):
     FIXED = "fixed"
