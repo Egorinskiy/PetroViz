@@ -75,6 +75,7 @@ class Settings(BaseSettings):
 
     # --- Storage ---
     well_data_dir: str = "storage/wells"
+    computation_data_dir: str = "storage/computations"
 
     # --- Derived (не из .env, а вычисляемые) ---
     @property
@@ -93,6 +94,13 @@ class Settings(BaseSettings):
     def well_data_path(self) -> Path:
         """Абсолютный путь к папке с parquet-файлами."""
         p = Path(self.well_data_dir)
+        if not p.is_absolute():
+            p = BASE_DIR / p
+        return p
+
+    @property
+    def computation_data_path(self) -> Path:
+        p = Path(self.computation_data_dir)
         if not p.is_absolute():
             p = BASE_DIR / p
         return p

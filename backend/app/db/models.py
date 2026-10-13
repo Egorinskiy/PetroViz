@@ -86,7 +86,13 @@ class Well(Base, TimestampMixin):
         back_populates="well", cascade="all, delete-orphan",
     )
 
+    computations: Mapped[list["Computation"]] = relationship(
+        back_populates="well",
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (Index("ix_wells_owner_name", "owner_id", "well_name"),)
+
 
 
 class WellAccess(Base, TimestampMixin):
@@ -137,3 +143,39 @@ class AuditLog(Base, TimestampMixin):
     details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     user: Mapped["User | None"] = relationship(back_populates="audit_entries")
+
+class Computation(Base, TimestampMixin):
+    """Сохранённый петрофизический расчёт."""
+    __tablename__ = "computations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    well_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("wells.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    method: Mapped[str] = mapped_column(String(64), nullable=False)
+    params: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    curve_mapping: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    output_mnemonic: Mapped[str] = mapped_column(String(64), nullable=False)
+    data_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    warnings: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    num_samples: Mapped[int] = mapped_column(nullable=False)
+
+    # Связи
+    well: Mapped["Well"] = relationship(back_populates="computations")
+    user: Mapped["User"] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<Computation {self.method} → {self.output_mnemonic}>"
