@@ -117,16 +117,19 @@ class ComputationService:
         return None
 
     def _dispatch(self, method: str, series: dict, params: dict) -> pd.Series:
-        """Диспетчер по методам. Пока только Vshale."""
+        """Диспетчер по методам."""
         from ..services.petrophysics.vshale import (
             vshale_linear, vshale_larionov_tertiary, vshale_larionov_older,
             vshale_stieber, vshale_neutron_density,
         )
+        from ..services.petrophysics.porosity import (
+            porosity_density, porosity_neutron, porosity_sonic,
+        )
 
         spec = METHODS[method]
-        # Мержим дефолты и пользовательские параметры
         merged = {**{k: v["default"] for k, v in spec["params"].items()}, **params}
 
+        # --- Vshale ---
         if method == "vshale_linear":
             return vshale_linear(series["gr"], merged["gr_min"], merged["gr_max"])
         if method == "vshale_larionov_tertiary":
@@ -141,6 +144,18 @@ class ComputationService:
                 merged["rho_matrix"], merged["rho_fluid"],
                 merged["phid_clean"], merged["phid_shale"],
                 merged["nphi_clean"], merged["nphi_shale"],
+            )
+
+        # --- Пористость ---
+        if method == "porosity_density":
+            return porosity_density(
+                series["rhob"], merged["rho_matrix"], merged["rho_fluid"],
+            )
+        if method == "porosity_neutron":
+            return porosity_neutron(series["nphi"])
+        if method == "porosity_sonic":
+            return porosity_sonic(
+                series["dtc"], merged["dt_matrix"], merged["dt_fluid"],
             )
 
         raise MethodNotFoundError(f"Method '{method}' has no implementation")

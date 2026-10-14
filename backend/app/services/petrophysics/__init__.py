@@ -7,6 +7,7 @@ from .base import METHODS, get_methods_by_category
 
 # Импорт регистрирует методы (side-effect)
 from . import vshale  # noqa: F401
+from . import porosity  # noqa: F401
 
 
 __all__ = ["METHODS", "get_methods_by_category"]
