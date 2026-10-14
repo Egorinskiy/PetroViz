@@ -9,6 +9,7 @@ import { PorosityExpressPanel } from './PorosityExpressPanel';
 export function ComputationsPanel({
   well,
   onPreviewChange,
+  onExpressChange,
   onClose,
   savedTracks = [],
   onShowSaved,
@@ -18,6 +19,7 @@ export function ComputationsPanel({
   const availableCurves = well?.curves || [];
 
   const [activeTab, setActiveTab] = useState('single');
+  const [expressData, setExpressData] = useState(null);
 
   const {
     methods,
@@ -46,15 +48,17 @@ export function ComputationsPanel({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
-    // Хранилище данных из express-вкладки
-    const [expressData, setExpressData] = React.useState(null);
+  // Проброс Single-таба
+  React.useEffect(() => {
+    if (!onPreviewChange) return;
+    onPreviewChange(activeTab === 'single' ? previewData : null);
+  }, [activeTab, previewData, onPreviewChange]);
 
-    // Пробрасываем наверх данные АКТИВНОЙ вкладки
-    React.useEffect(() => {
-      if (!onPreviewChange) return;
-      const data = activeTab === 'single' ? previewData : expressData;
-      onPreviewChange(data);
-    }, [activeTab, previewData, expressData, onPreviewChange]);
+  // Проброс Express-таба
+  React.useEffect(() => {
+    if (!onExpressChange) return;
+    onExpressChange(activeTab === 'porosity' ? expressData : null);
+  }, [activeTab, expressData, onExpressChange]);
 
   const handleSave = async () => {
     if (!wellId || !selectedMethodKey || !previewData) return;
@@ -105,7 +109,7 @@ export function ComputationsPanel({
         </button>
       </div>
 
-      {/* Вкладки панели */}
+      {/* Вкладки */}
       <div
         style={{
           display: 'flex',
@@ -139,7 +143,6 @@ export function ComputationsPanel({
       {/* ================== ВКЛАДКА «ОДИНОЧНЫЙ» ================== */}
       {activeTab === 'single' && (
         <>
-          {/* Выбор метода */}
           <MethodSelector
             methods={methods}
             value={selectedMethodKey}
@@ -148,7 +151,6 @@ export function ComputationsPanel({
 
           {selectedMethod && (
             <>
-              {/* Маппинг входных кривых */}
               <div className="computations-panel__section">
                 <div className="computations-panel__section-title">
                   Входные кривые
@@ -164,7 +166,6 @@ export function ComputationsPanel({
                 ))}
               </div>
 
-              {/* Параметры метода */}
               {Object.keys(selectedMethod.params).length > 0 && (
                 <div className="computations-panel__section">
                   <div className="computations-panel__section-title">
@@ -182,7 +183,6 @@ export function ComputationsPanel({
                 </div>
               )}
 
-              {/* Статус + Кнопка Сохранить */}
               <div
                 style={{
                   display: 'flex',
@@ -210,7 +210,6 @@ export function ComputationsPanel({
                     </span>
                   )}
 
-                  {/* Предупреждение о низком покрытии */}
                   {!previewLoading && !previewError && previewData && (() => {
                     const coverage = Object.entries(previewData.curves).map(
                       ([mnemonic, c]) => {
@@ -352,7 +351,6 @@ export function ComputationsPanel({
                 })}
               </div>
 
-              {/* Предупреждения preview */}
               {warnings.length > 0 && (
                 <div className="computations-panel__warnings">
                   {warnings.map((w, i) => (
@@ -368,12 +366,12 @@ export function ComputationsPanel({
       )}
 
       {/* ================== ВКЛАДКА «ЭКСПРЕСС-ПОРИСТОСТЬ» ================== */}
-        {activeTab === 'porosity' && (
-          <PorosityExpressPanel
-            wellId={wellId}
-            onResultChange={setExpressData}
-          />
-        )}
+      {activeTab === 'porosity' && (
+        <PorosityExpressPanel
+          wellId={wellId}
+          onResultChange={setExpressData}
+        />
+      )}
     </aside>
   );
 }
