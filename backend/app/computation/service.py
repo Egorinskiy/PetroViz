@@ -124,6 +124,7 @@ class ComputationService:
         )
         from ..services.petrophysics.porosity import (
             porosity_density, porosity_neutron, porosity_sonic,
+            porosity_neutron_density,
         )
 
         spec = METHODS[method]
@@ -156,6 +157,12 @@ class ComputationService:
         if method == "porosity_sonic":
             return porosity_sonic(
                 series["dtc"], merged["dt_matrix"], merged["dt_fluid"],
+            )
+        if method == "porosity_neutron_density":
+            return porosity_neutron_density(
+                series["rhob"], series["nphi"],
+                merged["rho_matrix"], merged["rho_fluid"],
+                mode="auto",
             )
 
         raise MethodNotFoundError(f"Method '{method}' has no implementation")

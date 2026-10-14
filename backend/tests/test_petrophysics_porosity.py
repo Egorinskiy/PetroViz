@@ -13,6 +13,7 @@ from app.services.petrophysics.porosity import (
     porosity_density,
     porosity_neutron,
     porosity_sonic,
+    porosity_neutron_density,
 )
 
 
@@ -138,3 +139,52 @@ class TestPorositySonic:
     def test_invalid_fluid_less_than_matrix(self):
         with pytest.raises(ValueError, match="dt_fluid must be greater"):
             porosity_sonic(pd.Series([100.0]), dt_matrix=189.0, dt_fluid=55.5)
+
+class TestPorosityNeutronDensity:
+    def test_water_zone_average(self):
+        """В водяной зоне NPHI ≈ PHID → среднее."""
+        # ρb=2.35 → PHID = 0.30/1.65 = 0.1818
+        # NPHI = 0.20 → не газ (0.20 > 0.1818) → average
+        rhob = pd.Series([2.35])
+        nphi = pd.Series([0.20])
+        result = porosity_neutron_density(rhob, nphi, mode="auto")
+        # (0.1818 + 0.20) / 2 = 0.1909
+        assert result.iloc[0] == pytest.approx(0.1909, abs=1e-3)
+
+    def test_gas_zone_rms(self):
+        """В газовой зоне NPHI << PHID → RMS."""
+        # ρb=2.35 → PHID = 0.1818
+        # NPHI = 0.05 → газ (0.05 < 0.1818) → RMS
+        rhob = pd.Series([2.35])
+        nphi = pd.Series([0.05])
+        result = porosity_neutron_density(rhob, nphi, mode="auto")
+        # √((0.1818² + 0.05²) / 2) = √((0.03306 + 0.0025) / 2) = √0.01778 ≈ 0.1333
+        assert result.iloc[0] == pytest.approx(0.1333, abs=1e-3)
+
+    def test_mode_average_forced(self):
+        rhob = pd.Series([2.35])
+        nphi = pd.Series([0.05])
+        result = porosity_neutron_density(rhob, nphi, mode="average")
+        # (0.1818 + 0.05) / 2 = 0.1159
+        assert result.iloc[0] == pytest.approx(0.1159, abs=1e-3)
+
+    def test_mode_rms_forced(self):
+        rhob = pd.Series([2.35])
+        nphi = pd.Series([0.20])
+        result = porosity_neutron_density(rhob, nphi, mode="rms")
+        # √((0.1818² + 0.20²) / 2) = √((0.03306 + 0.04) / 2) = √0.03653 ≈ 0.1911
+        assert result.iloc[0] == pytest.approx(0.1911, abs=1e-3)
+
+    def test_nan_preserved(self):
+        rhob = pd.Series([2.35, np.nan, 2.35])
+        nphi = pd.Series([0.20, 0.20, np.nan])
+        result = porosity_neutron_density(rhob, nphi)
+        assert not pd.isna(result.iloc[0])
+        assert pd.isna(result.iloc[1])
+        assert pd.isna(result.iloc[2])
+
+    def test_unknown_mode_raises(self):
+        with pytest.raises(ValueError, match="Unknown mode"):
+            porosity_neutron_density(
+                pd.Series([2.35]), pd.Series([0.20]), mode="bad"
+            )
