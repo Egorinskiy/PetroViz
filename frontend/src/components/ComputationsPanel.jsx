@@ -4,6 +4,7 @@ import { useSavedComputations } from '../hooks/useSavedComputations';
 import { MethodSelector } from './MethodSelector';
 import { ParamSlider } from './ParamSlider';
 import { CurveMappingSelect } from './CurveMappingSelect';
+import { PorosityExpressPanel } from './PorosityExpressPanel';
 
 export function ComputationsPanel({
   well,
@@ -45,10 +46,15 @@ export function ComputationsPanel({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
-  // Пробрасываем preview-данные наверх в App.jsx (для трека)
-  React.useEffect(() => {
-    if (onPreviewChange) onPreviewChange(previewData);
-  }, [previewData, onPreviewChange]);
+    // Хранилище данных из express-вкладки
+    const [expressData, setExpressData] = React.useState(null);
+
+    // Пробрасываем наверх данные АКТИВНОЙ вкладки
+    React.useEffect(() => {
+      if (!onPreviewChange) return;
+      const data = activeTab === 'single' ? previewData : expressData;
+      onPreviewChange(data);
+    }, [activeTab, previewData, expressData, onPreviewChange]);
 
   const handleSave = async () => {
     if (!wellId || !selectedMethodKey || !previewData) return;
@@ -362,29 +368,12 @@ export function ComputationsPanel({
       )}
 
       {/* ================== ВКЛАДКА «ЭКСПРЕСС-ПОРИСТОСТЬ» ================== */}
-      {activeTab === 'porosity' && (
-        <div style={{ padding: 16 }}>
-          <div
-            style={{
-              fontSize: 13,
-              color: '#666',
-              padding: '16px 12px',
-              background: '#f5f5f5',
-              borderRadius: 6,
-              border: '1px dashed #ccc',
-              textAlign: 'center',
-            }}
-          >
-            🚧 Экспресс-анализатор пористости
-            <div
-              className="text-xs text-muted"
-              style={{ marginTop: 6 }}
-            >
-              В разработке — следующая сессия.
-            </div>
-          </div>
-        </div>
-      )}
+        {activeTab === 'porosity' && (
+          <PorosityExpressPanel
+            wellId={wellId}
+            onResultChange={setExpressData}
+          />
+        )}
     </aside>
   );
 }
