@@ -156,20 +156,34 @@ const WellLogViewer = ({
             return;
           }
 
-          const upper = mnemonic.toUpperCase();
-          const isNormalized =
-            upper.startsWith('VSH') || upper.startsWith('SW') || upper.startsWith('PHI');
+            const upper = mnemonic.toUpperCase();
+            const isVshale = upper.startsWith('VSH');
+            const isSaturation = upper.startsWith('SW');
+            const isPorosity = upper.startsWith('PHI');
 
-          // Цвет: live — зелёный, saved — синий; остальные — красный
-          const color = isSaved ? '#1565c0' : (upper.startsWith('VSH') ? '#388e3c' : '#C62828');
+            // Цвет: VSH — зелёный, PHI — оранжевый, SW — синий, saved — тёмно-синий
+            let color;
+            if (isSaved) {
+              color = '#1565c0';
+            } else if (isVshale) {
+              color = '#388e3c';
+            } else if (isPorosity) {
+              color = '#E65100';   // оранжевый для PHI
+            } else if (isSaturation) {
+              color = '#1565c0';   // синий для SW
+            } else {
+              color = '#C62828';   // красный для остальных
+            }
 
-          let x;
-          if (isNormalized) {
-            x = d3.scaleLinear().domain([0, 1]).range([xOffset, xOffset + trackWidth]);
-          } else {
-            const extent = d3.extent(validValues);
-            x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
-          }
+            let x;
+            if (isVshale || isSaturation) {
+              x = d3.scaleLinear().domain([0, 1]).range([xOffset, xOffset + trackWidth]);
+            } else if (isPorosity) {
+              x = d3.scaleLinear().domain([0, 0.6]).range([xOffset, xOffset + trackWidth]);
+            } else {
+              const extent = d3.extent(validValues);
+              x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
+            }
 
           g.append('g')
             .attr('transform', `translate(0,${innerHeight})`)
