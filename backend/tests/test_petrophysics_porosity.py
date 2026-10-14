@@ -188,3 +188,86 @@ class TestPorosityNeutronDensity:
             porosity_neutron_density(
                 pd.Series([2.35]), pd.Series([0.20]), mode="bad"
             )
+
+# ============================================================================
+# Fluid zones
+# ============================================================================
+
+class TestFluidZones:
+    def test_no_zones_baseline(self):
+        """Без зон — как обычно."""
+        rhob = pd.Series([2.35, 2.35], index=[1000.0, 2000.0])
+        result = porosity_density(rhob, rho_matrix=2.65, rho_fluid=1.0)
+        # (2.65-2.35)/1.65 = 0.1818 в обеих точках
+        assert result.iloc[0] == pytest.approx(0.1818, abs=1e-3)
+        assert result.iloc[1] == pytest.approx(0.1818, abs=1e-3)
+
+    def test_gas_zone_increases_phid(self):
+        """В газовой зоне ρf=0.2 → PHID сильно растёт."""
+        rhob = pd.Series([2.35, 2.35, 2.35], index=[1000.0, 1500.0, 2000.0])
+        zones = [{"from": 1200.0, "to": 1800.0, "rho_fluid": 0.2}]
+        result = porosity_density(
+            rhob, rho_matrix=2.65, rho_fluid=1.0, fluid_zones=zones,
+        )
+        # 1000: ρf=1.0 → 0.1818
+        # 1500: ρf=0.2 → 0.30/2.45 = 0.1224  (в зоне)
+        # 2000: ρf=1.0 → 0.1818
+        assert result.iloc[0] == pytest.approx(0.1818, abs=1e-3)
+        assert result.iloc[1] == pytest.approx(0.1224, abs=1e-3)
+        assert result.iloc[2] == pytest.approx(0.1818, abs=1e-3)
+
+    def test_oil_zone_slight_change(self):
+        """Нефть ρf=0.8 → PHID растёт."""
+        rhob = pd.Series([2.35], index=[1500.0])
+        zones = [{"from": 1400.0, "to": 1600.0, "rho_fluid": 0.8}]
+        result = porosity_density(rhob, fluid_zones=zones)
+        # (2.65-2.35)/(2.65-0.8) = 0.30/1.85 = 0.1622
+        assert result.iloc[0] == pytest.approx(0.1622, abs=1e-3)
+
+    def test_zone_outside_range_ignored(self):
+        """Зона вне глубины сэмплов — не влияет."""
+        rhob = pd.Series([2.35], index=[500.0])
+        zones = [{"from": 1000.0, "to": 2000.0, "rho_fluid": 0.2}]
+        result = porosity_density(rhob, fluid_zones=zones)
+        # 500 не в зоне → ρf=1.0 → 0.1818
+        assert result.iloc[0] == pytest.approx(0.1818, abs=1e-3)
+
+    def test_multiple_zones(self):
+        """Несколько зон — каждая работает в своём интервале."""
+        rhob = pd.Series([2.35, 2.35, 2.35], index=[1000.0, 1500.0, 2000.0])
+        zones = [
+            {"from": 900.0, "to": 1100.0, "rho_fluid": 0.2},
+            {"from": 1900.0, "to": 2100.0, "rho_fluid": 0.8},
+        ]
+        result = porosity_density(rhob, fluid_zones=zones)
+        # 1000: газ → 0.1224
+        # 1500: нет зоны → 0.1818
+        # 2000: нефть → 0.1622
+        assert result.iloc[0] == pytest.approx(0.1224, abs=1e-3)
+        assert result.iloc[1] == pytest.approx(0.1818, abs=1e-3)
+        assert result.iloc[2] == pytest.approx(0.1622, abs=1e-3)
+
+    def test_invalid_zone_skipped(self):
+        """Битая зона не должна ломать расчёт."""
+        rhob = pd.Series([2.35], index=[1500.0])
+        zones = [
+            {"from": "abc", "to": 2000.0, "rho_fluid": 0.2},  # битая
+            {"from": 1400.0, "to": 1600.0, "rho_fluid": 0.8},  # валидная
+        ]
+        result = porosity_density(rhob, fluid_zones=zones)
+        # Валидная зона: ρf=0.8 → 0.1622
+        assert result.iloc[0] == pytest.approx(0.1622, abs=1e-3)
+
+    def test_neutron_density_uses_fluid_zones(self):
+        """PHI_ND тоже учитывает fluid_zones в PHID."""
+        rhob = pd.Series([2.35, 2.35], index=[1000.0, 1500.0])
+        # ВАЖНО: тот же индекс, что у rhob — иначе pandas выровняет по индексу и получит NaN
+        nphi = pd.Series([0.30, 0.30], index=[1000.0, 1500.0])
+        zones = [{"from": 1400.0, "to": 1600.0, "rho_fluid": 0.2}]
+        result = porosity_neutron_density(
+            rhob, nphi, mode="average", fluid_zones=zones,
+        )
+        # 1000: PHID=0.1818, NPHI=0.30 → (0.1818+0.30)/2 = 0.2409
+        # 1500: PHID=0.1224, NPHI=0.30 → (0.1224+0.30)/2 = 0.2112
+        assert result.iloc[0] == pytest.approx(0.2409, abs=1e-3)
+        assert result.iloc[1] == pytest.approx(0.2112, abs=1e-3)

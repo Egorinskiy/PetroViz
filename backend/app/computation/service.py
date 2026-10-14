@@ -148,21 +148,25 @@ class ComputationService:
             )
 
         # --- Пористость ---
+        fluid_zones = merged.get("fluid_zones")
+
         if method == "porosity_density":
             return porosity_density(
                 series["rhob"], merged["rho_matrix"], merged["rho_fluid"],
+                fluid_zones=fluid_zones,
             )
         if method == "porosity_neutron":
             return porosity_neutron(series["nphi"])
-        if method == "porosity_sonic":
-            return porosity_sonic(
-                series["dtc"], merged["dt_matrix"], merged["dt_fluid"],
-            )
         if method == "porosity_neutron_density":
             return porosity_neutron_density(
                 series["rhob"], series["nphi"],
                 merged["rho_matrix"], merged["rho_fluid"],
                 mode="auto",
+                fluid_zones=fluid_zones,
+            )
+        if method == "porosity_sonic":
+            return porosity_sonic(
+                series["dtc"], merged["dt_matrix"], merged["dt_fluid"],
             )
 
         raise MethodNotFoundError(f"Method '{method}' has no implementation")

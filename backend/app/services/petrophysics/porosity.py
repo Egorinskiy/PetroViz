@@ -27,6 +27,7 @@ def porosity_density(
     rhob: pd.Series,
     rho_matrix: float = 2.65,
     rho_fluid: float = 1.0,
+    fluid_zones: list | None = None,
 ) -> pd.Series:
     """
     Плотностная пористость.
@@ -35,15 +36,31 @@ def porosity_density(
         PHID = (ρm − ρb) / (ρm − ρf)
 
     Параметры:
-        rhob       — объёмная плотность (g/cm³)
-        rho_matrix — плотность матрицы (g/cm³), 2.65 — кварц (песчаник),
-                     2.71 — известняк, 2.87 — доломит
-        rho_fluid  — плотность флюида (g/cm³): 1.0 — вода, 0.8 — нефть, 0.2 — газ
+        rhob        — объёмная плотность (g/cm³)
+        rho_matrix  — плотность матрицы (g/cm³)
+        rho_fluid   — базовая плотность флюида (g/cm³)
+        fluid_zones — список интервалов [{from, to, rho_fluid}].
+                      Если задан, ρf меняется по глубине в указанных интервалах.
     """
     if rho_matrix <= rho_fluid:
         raise ValueError("rho_matrix must be greater than rho_fluid")
 
-    phid = (rho_matrix - rhob) / (rho_matrix - rho_fluid)
+    if fluid_zones:
+        # ρf как функция глубины
+        rho_fluid_series = pd.Series(rho_fluid, index=rhob.index, dtype=float)
+        for zone in fluid_zones:
+            try:
+                from_d = float(zone["from"])
+                to_d = float(zone["to"])
+                zone_rho = float(zone["rho_fluid"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            mask = (rhob.index >= from_d) & (rhob.index <= to_d)
+            rho_fluid_series.loc[mask] = zone_rho
+        phid = (rho_matrix - rhob) / (rho_matrix - rho_fluid_series)
+    else:
+        phid = (rho_matrix - rhob) / (rho_matrix - rho_fluid)
+
     return phid.clip(lower=PHI_MIN, upper=PHI_MAX)
 
 
@@ -100,32 +117,18 @@ def porosity_neutron_density(
     rho_matrix: float = 2.65,
     rho_fluid: float = 1.0,
     mode: str = "auto",
+    fluid_zones: list | None = None,
 ) -> pd.Series:
     """
-    Пористость по комбинации ГГКп + ННКт (crossplot porosity).
+    Пористость по комбинации ГГКп + ННКт (crossplot).
 
-    Логика:
-      1. PHID из RHOB.
-      2. Автоматический выбор формулы по кроссоверу:
-         - NPHI < PHID (газовая зона) → RMS:
-             PHI_ND = √((PHID² + NPHI²) / 2)
-         - Иначе → среднее арифметическое:
-             PHI_ND = (PHID + NPHI) / 2
-
-    Параметры:
-        rhob       — объёмная плотность
-        nphi       — нейтронная пористость
-        rho_matrix — плотность матрицы (g/cm³)
-        rho_fluid  — плотность флюида (g/cm³)
-        mode       — 'auto' | 'average' | 'rms'
-                     'auto'    — RMS в газовых зонах, average в остальных
-                     'average' — всегда среднее арифметическое
-                     'rms'     — всегда RMS
+    PHID учитывает fluid_zones (если заданы).
     """
     if rho_matrix <= rho_fluid:
         raise ValueError("rho_matrix must be greater than rho_fluid")
 
-    phid = (rho_matrix - rhob) / (rho_matrix - rho_fluid)
+    # PHID через общую функцию (учитывает fluid_zones)
+    phid = porosity_density(rhob, rho_matrix, rho_fluid, fluid_zones=fluid_zones)
 
     if mode == "average":
         result = (phid + nphi) / 2.0
@@ -134,7 +137,6 @@ def porosity_neutron_density(
     elif mode == "auto":
         avg = (phid + nphi) / 2.0
         rms = np.sqrt((phid.pow(2) + nphi.pow(2)) / 2.0)
-        # Газовая зона: NPHI < PHID
         is_gas = nphi < phid
         result = avg.where(~is_gas, rms)
     else:
