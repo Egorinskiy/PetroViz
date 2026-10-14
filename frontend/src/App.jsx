@@ -12,9 +12,13 @@ import { WellsSidebar } from './components/WellsSidebar';
 import { ComputationsPanel } from './components/ComputationsPanel';
 import WellLogViewer from './components/WellLogViewer';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
+import { AdminLayout } from './components/AdminLayout';
 import { UserMenu } from './components/UserMenu';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
+import { AdminWellsPage } from './pages/AdminWellsPage';
 import { computationsApi } from './api/computations';
 import './App.css';
 
@@ -92,11 +96,11 @@ function MainPage() {
     setSelectedCurves(fallback);
 
     setWellData(null);
-    setPreviewData(null); // сбрасываем расчёт при смене скважины
-    setSavedTracks([]); // сбрасываем сохранённые треки
+    setPreviewData(null);
+    setSavedTracks([]);
   };
 
-  // --- Активная скважина (для панели расчётов) ---
+  // --- Активная скважина ---
   const activeWell = wells.find((w) => w.well_id === activeWellId) || null;
 
   // --- Загрузка нового файла ---
@@ -144,33 +148,34 @@ function MainPage() {
       alert(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }
   };
-        // --- Загрузка сохранённого расчёта на трек ---
-    const handleShowSaved = useCallback(async (compId) => {
-      try {
-        const data = await computationsApi.getData(compId);
-        setSavedTracks((prev) => {
-          if (prev.some((t) => t.id === compId)) return prev;
-          return [
-            ...prev,
-            {
-              id: compId,
-              mnemonic: data.output_mnemonic,
-              label: data.output_mnemonic, // можно расширить позже — дата/метод
-              depth: data.depth,
-              values: data.values,
-              method: data.method,
-            },
-          ];
-        });
-      } catch (err) {
-        const detail = err.response?.data?.detail || err.message;
-        alert(typeof detail === 'string' ? detail : JSON.stringify(detail));
-      }
-    }, []);
 
-    const handleHideSaved = useCallback((compId) => {
-      setSavedTracks((prev) => prev.filter((t) => t.id !== compId));
-    }, []);
+  // --- Загрузка сохранённого расчёта на трек ---
+  const handleShowSaved = useCallback(async (compId) => {
+    try {
+      const data = await computationsApi.getData(compId);
+      setSavedTracks((prev) => {
+        if (prev.some((t) => t.id === compId)) return prev;
+        return [
+          ...prev,
+          {
+            id: compId,
+            mnemonic: data.output_mnemonic,
+            label: data.output_mnemonic,
+            depth: data.depth,
+            values: data.values,
+            method: data.method,
+          },
+        ];
+      });
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message;
+      alert(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    }
+  }, []);
+
+  const handleHideSaved = useCallback((compId) => {
+    setSavedTracks((prev) => prev.filter((t) => t.id !== compId));
+  }, []);
 
   const toggleCurve = (curve) => {
     setSelectedCurves((prev) => {
@@ -305,6 +310,22 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* --- Админка --- */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<Navigate to="users" replace />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="wells" element={<AdminWellsPage />} />
+        </Route>
+
+        {/* --- Главная (защищённая) --- */}
         <Route
           path="/"
           element={
