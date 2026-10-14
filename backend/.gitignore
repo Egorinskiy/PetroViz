@@ -44,3 +44,6 @@ alembic/versions/__pycache__/
 
 # Petroviz test artifacts
 .pytest_cache/
+
+# Computations
+storage/computations/*.parquet
