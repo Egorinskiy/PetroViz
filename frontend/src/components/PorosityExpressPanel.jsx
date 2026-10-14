@@ -4,6 +4,8 @@ import {
   DEFAULT_EXPRESS_PARAMS,
   LITHOLOGY_PRESETS,
 } from '../hooks/usePorosityExpress';
+import { PorosityCrossplots } from './PorosityCrossplots';
+import { PorosityStatistics } from './PorosityStatistics';
 
 const POROSITY_COLORS = {
   PHID: '#E65100',
@@ -15,13 +17,10 @@ const POROSITY_COLORS = {
 export function PorosityExpressPanel({ wellId, onResultChange }) {
   const [params, setParams] = React.useState(DEFAULT_EXPRESS_PARAMS);
   const [lithology, setLithology] = React.useState('sandstone');
-  // Видимость кривых — по умолчанию все включены
   const [visible, setVisible] = React.useState({
-    PHID: true,
-    PHIN: true,
-    PHI_ND: true,
-    PHIS: true,
+    PHID: true, PHIN: true, PHI_ND: true, PHIS: true,
   });
+  const [subTab, setSubTab] = React.useState('track'); // track | crossplot | stats
 
   const { previewData, loading, error } = usePorosityExpress({
     wellId,
@@ -71,9 +70,19 @@ export function PorosityExpressPanel({ wellId, onResultChange }) {
 
   const isChecked = (mnemonic) => visible[mnemonic] !== false;
 
+  // Отфильтрованные кривые (по чек-боксам) — для кросс-плотов и статистики
+  const filteredCurves = React.useMemo(() => {
+    if (!previewData) return {};
+    return Object.fromEntries(
+      Object.entries(previewData.curves).filter(
+        ([mnemonic]) => visible[mnemonic] !== false
+      )
+    );
+  }, [previewData, visible]);
+
   return (
     <div style={{ padding: 12 }}>
-      {/* --- Параметры --- */}
+      {/* --- Параметры (видны на всех под-вкладках) --- */}
       <div className="computations-panel__section-title">Параметры</div>
 
       <div style={{ marginBottom: 10 }}>
@@ -114,46 +123,114 @@ export function PorosityExpressPanel({ wellId, onResultChange }) {
         value={params.dt_fluid} onChange={handleParam}
       />
 
-      {/* --- Кривые на треке --- */}
-      <div className="computations-panel__section-title" style={{ marginTop: 16 }}>
-        Кривые на треке
+      {/* --- Под-вкладки --- */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 2,
+          marginTop: 12,
+          marginBottom: 8,
+          borderBottom: '1px solid #eee',
+        }}
+      >
+        {[
+          ['track', 'Треки'],
+          ['crossplot', 'Кросс-плоты'],
+          ['stats', 'Статистика'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setSubTab(key)}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              borderBottom: subTab === key ? '2px solid #1565c0' : '2px solid transparent',
+              color: subTab === key ? '#1565c0' : '#666',
+              fontWeight: subTab === key ? 600 : 400,
+              padding: '6px 4px',
+              cursor: 'pointer',
+              fontSize: 12,
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {loading && (
+      {error && <div className="banner banner--error">{error}</div>}
+
+      {/* Индикатор обновления — не размонтирует контент */}
+      {loading && previewData && (
+        <div
+          className="text-xs text-muted"
+          style={{
+            padding: '4px 8px',
+            background: '#f0f4f8',
+            borderRadius: 4,
+            marginBottom: 6,
+            textAlign: 'center',
+          }}
+        >
+          Обновление…
+        </div>
+      )}
+
+      {/* Первая загрузка */}
+      {loading && !previewData && (
         <div className="text-sm text-muted" style={{ padding: '8px 0' }}>
           Расчёт 4 методов…
         </div>
       )}
 
-      {error && <div className="banner banner--error">{error}</div>}
+      {/* Контент НЕ размонтируется при обновлении */}
+      {previewData && (
+        <>
+          {subTab === 'track' && (
+            <>
+              <div className="computations-panel__section-title">
+                Кривые на треке
+              </div>
+              <div style={{ fontSize: 12, marginTop: 8 }}>
+                {Object.entries(previewData.curves).map(([mnemonic]) => {
+                  const color = POROSITY_COLORS[mnemonic] || '#666';
+                  const checked = isChecked(mnemonic);
+                  return (
+                    <label
+                      key={mnemonic}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '6px 4px',
+                        borderBottom: '1px solid #f0f0f0',
+                        cursor: 'pointer',
+                        opacity: checked ? 1 : 0.5,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleVisible(mnemonic)}
+                      />
+                      <span style={{ fontWeight: 600, color }}>{mnemonic}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
-      {!loading && previewData && (
-        <div style={{ fontSize: 12, marginTop: 8 }}>
-          {Object.entries(previewData.curves).map(([mnemonic]) => {
-            const color = POROSITY_COLORS[mnemonic] || '#666';
-            const checked = isChecked(mnemonic);
-            return (
-              <label
-                key={mnemonic}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 4px',
-                  borderBottom: '1px solid #f0f0f0',
-                  cursor: 'pointer',
-                  opacity: checked ? 1 : 0.5,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleVisible(mnemonic)}
-                />
-                <span style={{ fontWeight: 600, color }}>{mnemonic}</span>
-              </label>
-            );
-          })}
+          {subTab === 'crossplot' && (
+            <PorosityCrossplots
+              curves={filteredCurves}
+              depth={previewData.depth}
+            />
+          )}
+
+          {subTab === 'stats' && (
+            <PorosityStatistics curves={filteredCurves} />
+          )}
 
           {previewData.warnings.length > 0 && (
             <div className="banner banner--warning" style={{ marginTop: 10 }}>
@@ -162,14 +239,7 @@ export function PorosityExpressPanel({ wellId, onResultChange }) {
               ))}
             </div>
           )}
-
-          <div
-            className="text-xs text-muted"
-            style={{ marginTop: 10, lineHeight: 1.4 }}
-          >
-            Снятие галочки убирает кривую с трека.
-          </div>
-        </div>
+        </>
       )}
 
       {!loading && !previewData && !error && (
@@ -179,7 +249,6 @@ export function PorosityExpressPanel({ wellId, onResultChange }) {
   );
 }
 
-/** Компактный слайдер для express */
 function ExpressSlider({ name, label, unit, min, max, step, value, onChange }) {
   const decimals = step < 0.1 ? 2 : step < 1 ? 1 : 0;
   return (

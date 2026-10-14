@@ -3,52 +3,75 @@ import { computationsApi } from '../api/computations';
 
 const DEBOUNCE_MS = 400;
 
-// Три метода пористости с дефолтными параметрами и маппингом
-const METHODS = [
-  {
-    key: 'porosity_density',
-    label: 'PHID',
-    mapping: { rhob: '' },
-    params: { rho_matrix: 2.65, rho_fluid: 1.0 },
-  },
-  {
-    key: 'porosity_neutron',
-    label: 'PHIN',
-    mapping: { nphi: '' },
-    params: {},
-  },
-  {
-    key: 'porosity_sonic',
-    label: 'PHIS',
-    mapping: { dtc: '' },
-    params: { dt_matrix: 55.5, dt_fluid: 189.0 },
-  },
-  {
-    key: 'porosity_neutron_density',
-    label: 'PHI_ND',
-    mapping: { rhob: '', nphi: '' },
-    params: { rho_matrix: 2.65, rho_fluid: 1.0 },
-  },
-];
+// Дефолты параметров express
+export const DEFAULT_EXPRESS_PARAMS = {
+  rho_matrix: 2.65,
+  rho_fluid: 1.0,
+  dt_matrix: 55.5,
+  dt_fluid: 189.0,
+};
+
+// Пресеты литологии
+export const LITHOLOGY_PRESETS = {
+  sandstone: { label: 'Песчаник (кварц)', rho_matrix: 2.65, dt_matrix: 55.5 },
+  limestone: { label: 'Известняк',        rho_matrix: 2.71, dt_matrix: 47.5 },
+  dolomite:  { label: 'Доломит',          rho_matrix: 2.87, dt_matrix: 43.5 },
+};
 
 /**
- * Экспресс-анализ пористости: 3 параллельных запроса (PHID, PHIN, PHIS),
- * объединение результатов в один previewData.
+ * Собирает 4 метода express с учётом текущих параметров.
  */
-export function usePorosityExpress({ wellId, enabled }) {
+function buildMethods(p) {
+  return [
+    {
+      key: 'porosity_density',
+      label: 'PHID',
+      mapping: { rhob: '' },
+      params: { rho_matrix: p.rho_matrix, rho_fluid: p.rho_fluid },
+    },
+    {
+      key: 'porosity_neutron',
+      label: 'PHIN',
+      mapping: { nphi: '' },
+      params: {},
+    },
+    {
+      key: 'porosity_neutron_density',
+      label: 'PHI_ND',
+      mapping: { rhob: '', nphi: '' },
+      params: { rho_matrix: p.rho_matrix, rho_fluid: p.rho_fluid },
+    },
+    {
+      key: 'porosity_sonic',
+      label: 'PHIS',
+      mapping: { dtc: '' },
+      params: { dt_matrix: p.dt_matrix, dt_fluid: p.dt_fluid },
+    },
+  ];
+}
+
+/**
+ * Экспресс-анализ пористости: 4 параллельных запроса.
+ * Параметры передаются через expressParams (debounce по их изменению).
+ */
+export function usePorosityExpress({ wellId, enabled, expressParams }) {
   const [previewData, setPreviewData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [perMethod, setPerMethod] = useState({});
   const debounceRef = useRef(null);
 
+  const params = expressParams || DEFAULT_EXPRESS_PARAMS;
+  const paramsKey = JSON.stringify(params);
+
   const run = useCallback(async () => {
     if (!wellId) return;
+    const methods = buildMethods(params);
     setLoading(true);
     setError(null);
     try {
       const results = await Promise.all(
-        METHODS.map((m) =>
+        methods.map((m) =>
           computationsApi
             .preview(wellId, m.key, m.mapping, m.params)
             .then((data) => ({ ok: true, key: m.key, mnemonic: m.label, data }))
@@ -84,7 +107,8 @@ export function usePorosityExpress({ wellId, enabled }) {
     } finally {
       setLoading(false);
     }
-  }, [wellId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wellId, paramsKey]);
 
   useEffect(() => {
     if (!enabled || !wellId) return;
@@ -93,7 +117,7 @@ export function usePorosityExpress({ wellId, enabled }) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [enabled, wellId, run]);
+  }, [enabled, wellId, run, paramsKey]);
 
   useEffect(() => {
     if (!enabled) {
