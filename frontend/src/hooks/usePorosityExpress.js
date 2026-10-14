@@ -18,16 +18,30 @@ export const LITHOLOGY_PRESETS = {
   dolomite:  { label: 'Доломит',          rho_matrix: 2.87, dt_matrix: 43.5 },
 };
 
+// Пресеты флюидов для зон
+export const FLUID_PRESETS = {
+  water:  { label: 'Вода',       rho: 1.0,  color: '#0277BD' },
+  oil:    { label: 'Нефть',      rho: 0.8,  color: '#2E7D32' },
+  gas:    { label: 'Газ',        rho: 0.2,  color: '#C62828' },
+  custom: { label: 'Кастомный',  rho: null, color: '#666666' },
+};
+
 /**
- * Собирает 4 метода express с учётом текущих параметров.
+ * Собирает 4 метода express с учётом текущих параметров и fluid zones.
  */
-function buildMethods(p) {
+function buildMethods(p, fluidZones) {
+  const zones = fluidZones && fluidZones.length > 0 ? fluidZones : undefined;
+
   return [
     {
       key: 'porosity_density',
       label: 'PHID',
       mapping: { rhob: '' },
-      params: { rho_matrix: p.rho_matrix, rho_fluid: p.rho_fluid },
+      params: {
+        rho_matrix: p.rho_matrix,
+        rho_fluid: p.rho_fluid,
+        fluid_zones: zones,
+      },
     },
     {
       key: 'porosity_neutron',
@@ -39,7 +53,11 @@ function buildMethods(p) {
       key: 'porosity_neutron_density',
       label: 'PHI_ND',
       mapping: { rhob: '', nphi: '' },
-      params: { rho_matrix: p.rho_matrix, rho_fluid: p.rho_fluid },
+      params: {
+        rho_matrix: p.rho_matrix,
+        rho_fluid: p.rho_fluid,
+        fluid_zones: zones,
+      },
     },
     {
       key: 'porosity_sonic',
@@ -50,11 +68,7 @@ function buildMethods(p) {
   ];
 }
 
-/**
- * Экспресс-анализ пористости: 4 параллельных запроса.
- * Параметры передаются через expressParams (debounce по их изменению).
- */
-export function usePorosityExpress({ wellId, enabled, expressParams }) {
+export function usePorosityExpress({ wellId, enabled, expressParams, fluidZones }) {
   const [previewData, setPreviewData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -62,11 +76,13 @@ export function usePorosityExpress({ wellId, enabled, expressParams }) {
   const debounceRef = useRef(null);
 
   const params = expressParams || DEFAULT_EXPRESS_PARAMS;
+  // Ключ зависит и от params, и от zones — чтобы debounce срабатывал при любых изменениях
   const paramsKey = JSON.stringify(params);
+  const zonesKey = JSON.stringify(fluidZones || []);
 
   const run = useCallback(async () => {
     if (!wellId) return;
-    const methods = buildMethods(params);
+    const methods = buildMethods(params, fluidZones);
     setLoading(true);
     setError(null);
     try {
@@ -108,7 +124,7 @@ export function usePorosityExpress({ wellId, enabled, expressParams }) {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wellId, paramsKey]);
+  }, [wellId, paramsKey, zonesKey]);
 
   useEffect(() => {
     if (!enabled || !wellId) return;
@@ -117,7 +133,7 @@ export function usePorosityExpress({ wellId, enabled, expressParams }) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [enabled, wellId, run, paramsKey]);
+  }, [enabled, wellId, run, paramsKey, zonesKey]);
 
   useEffect(() => {
     if (!enabled) {
