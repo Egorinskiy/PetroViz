@@ -38,7 +38,8 @@ function MainPage() {
 
   // --- Состояние панели расчётов ---
   const [computationsOpen, setComputationsOpen] = useState(false);
-  const [previewData, setPreviewData] = useState(null);
+  const [previewData, setPreviewData] = useState(null);        // Одиночный расчёт
+  const [porosityExpress, setPorosityExpress] = useState(null); // Экспресс-пористость
   const [savedTracks, setSavedTracks] = useState([]);
 
   const MAX_CURVES = 12;
@@ -57,7 +58,7 @@ function MainPage() {
         params: {
           curves: curves.join(','),
           mode: 'pixel',
-          pixel_width: 900,
+          pixel_width: 3000,
         },
       });
       setWellData(response.data);
@@ -97,6 +98,7 @@ function MainPage() {
 
     setWellData(null);
     setPreviewData(null);
+    setPorosityExpress(null);
     setSavedTracks([]);
   };
 
@@ -140,6 +142,7 @@ function MainPage() {
         setActiveWellId(null);
         setWellData(null);
         setPreviewData(null);
+        setPorosityExpress(null);
         setSavedTracks([]);
       }
       await reload();
@@ -175,6 +178,11 @@ function MainPage() {
 
   const handleHideSaved = useCallback((compId) => {
     setSavedTracks((prev) => prev.filter((t) => t.id !== compId));
+  }, []);
+
+  // --- Приём данных из экспресс-вкладки ---
+  const handleExpressChange = useCallback((data) => {
+    setPorosityExpress(data);
   }, []);
 
   const toggleCurve = (curve) => {
@@ -268,6 +276,7 @@ function MainPage() {
                     units={curveUnits}
                     scale={scale}
                     previewData={previewData}
+                    porosityExpress={porosityExpress}
                     savedTracks={savedTracks}
                   />
                   {dataLoading && (
@@ -293,6 +302,7 @@ function MainPage() {
           <ComputationsPanel
             well={activeWell}
             onPreviewChange={setPreviewData}
+            onExpressChange={handleExpressChange}
             onClose={() => setComputationsOpen(false)}
             savedTracks={savedTracks}
             onShowSaved={handleShowSaved}

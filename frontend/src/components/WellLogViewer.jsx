@@ -6,12 +6,21 @@ import { drawCompositeDN } from './wellLogViewer/drawCompositeDN';
 import { drawCompositeRes } from './wellLogViewer/drawCompositeRes';
 import { DEFAULT_SCALE, computeCanvasHeight } from '../constants/depthScales';
 
+// Палитра для express-трека пористости
+const POROSITY_COLORS = {
+  PHID: '#E65100',
+  PHIN: '#0277BD',
+  PHI_ND: '#00897B',
+  PHIS: '#6A1B9A',
+};
+
 const WellLogViewer = ({
   wellData,
   curvesToPlot,
   units = {},
   scale = DEFAULT_SCALE,
   previewData = null,
+  porosityExpress = null,
   savedTracks = [],
 }) => {
   const svgRef = useRef(null);
@@ -20,7 +29,8 @@ const WellLogViewer = ({
     if (!wellData || !curvesToPlot || curvesToPlot.length === 0) return;
 
     const tracks = buildTracks(curvesToPlot);
-    // Объединяем live-preview и сохранённые треки в один список
+
+    // --- Собираем список preview-треков (live + saved) ---
     const previewCurvesList = [];
     if (previewData?.curves) {
       for (const [mnemonic, curve] of Object.entries(previewData.curves)) {
@@ -43,6 +53,12 @@ const WellLogViewer = ({
       });
     }
 
+    // --- Express-трек (4 кривые на одном) ---
+    const expressCurves = porosityExpress?.curves
+      ? Object.entries(porosityExpress.curves)
+      : [];
+    const hasExpress = expressCurves.length > 0 && porosityExpress?.depth;
+
     // Геометрия
     const depthExtent = d3.extent(wellData.depth);
     const depthRange = depthExtent[1] - depthExtent[0];
@@ -51,7 +67,8 @@ const WellLogViewer = ({
     const margin = { top: 25, right: 30, bottom: 130, left: 80 };
     const trackWidth = 150;
     const trackGap = 25;
-    const totalTracks = tracks.length + previewCurvesList.length;
+    const totalTracks =
+      tracks.length + previewCurvesList.length + (hasExpress ? 1 : 0);
     const innerWidth = totalTracks * (trackWidth + trackGap);
     const totalWidth = innerWidth + margin.left + margin.right;
     const totalHeight = innerHeight + margin.top + margin.bottom;
@@ -64,7 +81,7 @@ const WellLogViewer = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // clipPath для каждого трека (включая preview)
+    // clipPath для каждого трека
     const defs = svg.append('defs');
     for (let idx = 0; idx < totalTracks; idx++) {
       const xOffset = idx * (trackWidth + trackGap);
@@ -104,7 +121,7 @@ const WellLogViewer = ({
       .text('Глубина (м)');
 
     // ========================================================================
-    // Основные треки (каротаж)
+    // Основные треки каротажа
     // ========================================================================
     tracks.forEach((track, trackIdx) => {
       const xOffset = trackIdx * (trackWidth + trackGap);
@@ -128,105 +145,194 @@ const WellLogViewer = ({
     });
 
     // ========================================================================
-    // Preview-треки (петрофизический расчёт)
+    // Preview-треки (одиночные расчёты + сохранённые)
     // ========================================================================
-    const previewDepths = previewData?.depth || [];
-
     previewCurvesList.forEach((item, previewIdx) => {
-          const { mnemonic, values, depth: trackDepth, isSaved, key } = item;
-          const trackIdx = tracks.length + previewIdx;
-          const xOffset = trackIdx * (trackWidth + trackGap);
-          const clipId = `url(#clip-track-${trackIdx})`;
+      const { mnemonic, values, depth: trackDepth, isSaved } = item;
+      const trackIdx = tracks.length + previewIdx;
+      const xOffset = trackIdx * (trackWidth + trackGap);
+      const clipId = `url(#clip-track-${trackIdx})`;
 
-          // Рамка
-          g.append('rect')
-            .attr('x', xOffset).attr('y', 0)
-            .attr('width', trackWidth).attr('height', innerHeight)
-            .attr('fill', 'none').attr('stroke', isSaved ? '#1565c0' : '#aaa');
+      g.append('rect')
+        .attr('x', xOffset).attr('y', 0)
+        .attr('width', trackWidth).attr('height', innerHeight)
+        .attr('fill', 'none')
+        .attr('stroke', isSaved ? '#1565c0' : '#aaa');
 
-          const validValues = (values || []).filter((v) => v != null && isFinite(v));
+      const validValues = (values || []).filter((v) => v != null && isFinite(v));
+      if (validValues.length === 0) {
+        g.append('text')
+          .attr('x', xOffset + trackWidth / 2)
+          .attr('y', innerHeight / 2)
+          .attr('text-anchor', 'middle')
+          .style('fill', '#999').style('font-size', '12px')
+          .text(`${mnemonic}: нет данных`);
+        return;
+      }
 
-          if (validValues.length === 0) {
-            g.append('text')
-              .attr('x', xOffset + trackWidth / 2)
-              .attr('y', innerHeight / 2)
-              .attr('text-anchor', 'middle')
-              .style('fill', '#999').style('font-size', '12px')
-              .text(`${mnemonic}: нет данных`);
-            return;
-          }
+      const upper = mnemonic.toUpperCase();
+      const isVshale = upper.startsWith('VSH');
+      const isSaturation = upper.startsWith('SW');
+      const isPorosity = upper.startsWith('PHI');
 
-            const upper = mnemonic.toUpperCase();
-            const isVshale = upper.startsWith('VSH');
-            const isSaturation = upper.startsWith('SW');
-            const isPorosity = upper.startsWith('PHI');
+      let color;
+      if (isSaved) {
+        color = '#1565c0';
+      } else if (isVshale) {
+        color = '#388e3c';
+      } else if (upper === 'PHI_ND') {
+        color = '#00897B';
+      } else if (upper.startsWith('PHID')) {
+        color = '#E65100';
+      } else if (upper.startsWith('PHIN')) {
+        color = '#0277BD';
+      } else if (upper.startsWith('PHIS')) {
+        color = '#6A1B9A';
+      } else if (isPorosity) {
+        color = '#E65100';
+      } else if (isSaturation) {
+        color = '#1565c0';
+      } else {
+        color = '#C62828';
+      }
 
-            // Цвет: VSH — зелёный, PHI — оранжевый, SW — синий, saved — тёмно-синий
-            let color;
-            if (isSaved) {
-              color = '#1565c0';
-            } else if (isVshale) {
-              color = '#388e3c';
-            } else if (upper === 'PHI_ND') {
-              color = '#00897B';   // тёмно-бирюзовый для crossplot
-            } else if (upper.startsWith('PHID')) {
-              color = '#E65100';
-            } else if (upper.startsWith('PHIN')) {
-              color = '#0277BD';
-            } else if (upper.startsWith('PHIS')) {
-              color = '#6A1B9A';
-            } else if (isPorosity) {
-              color = '#E65100';
-            } else if (isSaturation) {
-              color = '#1565c0';
-            } else {
-              color = '#C62828';
-            }
+      let x;
+      if (isVshale || isSaturation) {
+        x = d3.scaleLinear().domain([0, 1]).range([xOffset, xOffset + trackWidth]);
+      } else if (isPorosity) {
+        x = d3.scaleLinear().domain([0, 0.6]).range([xOffset, xOffset + trackWidth]);
+      } else {
+        const extent = d3.extent(validValues);
+        x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
+      }
 
-            let x;
-            if (isVshale || isSaturation) {
-              x = d3.scaleLinear().domain([0, 1]).range([xOffset, xOffset + trackWidth]);
-            } else if (isPorosity) {
-              x = d3.scaleLinear().domain([0, 0.6]).range([xOffset, xOffset + trackWidth]);
-            } else {
-              const extent = d3.extent(validValues);
-              x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
-            }
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
+        .selectAll('text').style('font-size', '9px');
 
-          g.append('g')
-            .attr('transform', `translate(0,${innerHeight})`)
-            .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
-            .selectAll('text').style('font-size', '9px');
+      g.append('g')
+        .attr('transform', `translate(0,0)`)
+        .call(d3.axisTop(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
+        .selectAll('line').style('stroke', '#e0e0e0');
 
-          g.append('g')
-            .attr('transform', `translate(0,0)`)
-            .call(d3.axisTop(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
-            .selectAll('line').style('stroke', '#e0e0e0');
+      const line = d3.line()
+        .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
+        .x((d) => x(d))
+        .y((_, i) => y(trackDepth[i]));
 
-          const line = d3.line()
-            .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
-            .x((d) => x(d))
-            .y((_, i) => y(trackDepth[i]));
+      g.append('path')
+        .datum(values)
+        .attr('fill', 'none')
+        .attr('stroke', color)
+        .attr('stroke-width', 1.5)
+        .attr('d', line)
+        .attr('clip-path', clipId);
 
-          g.append('path')
-            .datum(values)
-            .attr('fill', 'none')
-            .attr('stroke', color)
-            .attr('stroke-width', 1.5)
-            .attr('d', line)
-            .attr('clip-path', clipId);
+      g.append('text')
+        .attr('x', xOffset + trackWidth / 2)
+        .attr('y', innerHeight + 45)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '11px').style('font-weight', 'bold')
+        .style('fill', color)
+        .text(isSaved ? `💾 ${mnemonic}` : mnemonic);
+    });
 
-          g.append('text')
-            .attr('x', xOffset + trackWidth / 2)
-            .attr('y', innerHeight + 45)
-            .attr('text-anchor', 'middle')
-            .style('font-size', '11px').style('font-weight', 'bold')
-            .style('fill', color)
-            .text(isSaved ? `💾 ${mnemonic}` : mnemonic)
-            .append('title')
-            .text(`Расчёт: ${mnemonic} (${validValues.length} из ${values.length} точек)`);
-        });
-  }, [wellData, curvesToPlot, units, scale, previewData, savedTracks]);
+    // ========================================================================
+    // EXPRESS-трек: все кривые пористости на ОДНОМ треке
+    // ========================================================================
+    if (hasExpress) {
+      const trackIdx = tracks.length + previewCurvesList.length;
+      const xOffset = trackIdx * (trackWidth + trackGap);
+      const clipId = `url(#clip-track-${trackIdx})`;
+      const trackDepth = porosityExpress.depth;
+
+      // Рамка
+      g.append('rect')
+        .attr('x', xOffset).attr('y', 0)
+        .attr('width', trackWidth).attr('height', innerHeight)
+        .attr('fill', 'none').attr('stroke', '#00897B');
+
+      // Ось: 0..0.6
+      const x = d3.scaleLinear()
+        .domain([0, 0.6])
+        .range([xOffset, xOffset + trackWidth]);
+
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(4).tickFormat(d3.format('.1f')))
+        .selectAll('text').style('font-size', '9px');
+
+      // Мелкая сетка: нечётные 0.1, 0.3, 0.5 — пунктир
+      g.append('g')
+        .attr('transform', `translate(0,0)`)
+        .call(
+          d3.axisTop(x)
+            .tickValues([0.1, 0.3, 0.5])
+            .tickSize(-innerHeight)
+            .tickFormat('')
+        )
+        .selectAll('line')
+        .style('stroke', '#c8c8c8')
+        .style('stroke-dasharray', '2,4')
+        .style('stroke-width', '0.7');
+
+      // Основная сетка: 0, 0.2, 0.4, 0.6 — сплошная
+      g.append('g')
+        .attr('transform', `translate(0,0)`)
+        .call(
+          d3.axisTop(x)
+            .tickValues([0, 0.2, 0.4, 0.6])
+            .tickSize(-innerHeight)
+            .tickFormat('')
+        )
+        .selectAll('line')
+        .style('stroke', '#a0a0a0')
+        .style('stroke-width', '0.9');
+
+      // 4 кривые
+      expressCurves.forEach(([mnemonic, curve]) => {
+        const values = curve.values || [];
+        const color = POROSITY_COLORS[mnemonic] || '#666';
+
+        const line = d3.line()
+          .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
+          .x((d) => x(d))
+          .y((_, i) => y(trackDepth[i]));
+
+        g.append('path')
+          .datum(values)
+          .attr('fill', 'none')
+          .attr('stroke', color)
+          .attr('stroke-width', 1.5)
+          .attr('d', line)
+          .attr('clip-path', clipId);
+      });
+
+      // Легенда под треком
+      const legendX = xOffset;
+      expressCurves.forEach(([mnemonic], i) => {
+        const color = POROSITY_COLORS[mnemonic] || '#666';
+        g.append('text')
+          .attr('x', legendX + i * 38)
+          .attr('y', innerHeight + 45)
+          .attr('text-anchor', 'start')
+          .style('font-size', '10px')
+          .style('font-weight', 'bold')
+          .style('fill', color)
+          .text(mnemonic);
+      });
+
+      // Заголовок трека
+      g.append('text')
+        .attr('x', xOffset + trackWidth / 2)
+        .attr('y', innerHeight + 62)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '10px')
+        .style('fill', '#666')
+        .text('Пористость (v/v)');
+    }
+  }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, savedTracks]);
 
   return (
     <div style={{ marginTop: '5px' }}>
