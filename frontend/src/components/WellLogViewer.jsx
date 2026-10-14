@@ -162,19 +162,21 @@ const WellLogViewer = ({
             const isPorosity = upper.startsWith('PHI');
 
             // Цвет: VSH — зелёный, PHI — оранжевый, SW — синий, saved — тёмно-синий
-           let color;
+            let color;
             if (isSaved) {
               color = '#1565c0';
             } else if (isVshale) {
               color = '#388e3c';
+            } else if (upper === 'PHI_ND') {
+              color = '#00897B';   // тёмно-бирюзовый для crossplot
             } else if (upper.startsWith('PHID')) {
-              color = '#E65100';   // оранжевый
+              color = '#E65100';
             } else if (upper.startsWith('PHIN')) {
-              color = '#0277BD';   // сине-голубой
+              color = '#0277BD';
             } else if (upper.startsWith('PHIS')) {
-              color = '#6A1B9A';   // фиолетовый
+              color = '#6A1B9A';
             } else if (isPorosity) {
-              color = '#E65100';   // fallback для остальных PHI*
+              color = '#E65100';
             } else if (isSaturation) {
               color = '#1565c0';
             } else {

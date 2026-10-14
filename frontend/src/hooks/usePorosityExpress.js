@@ -23,6 +23,12 @@ const METHODS = [
     mapping: { dtc: '' },
     params: { dt_matrix: 55.5, dt_fluid: 189.0 },
   },
+  {
+    key: 'porosity_neutron_density',
+    label: 'PHI_ND',
+    mapping: { rhob: '', nphi: '' },
+    params: { rho_matrix: 2.65, rho_fluid: 1.0 },
+  },
 ];
 
 /**

@@ -40,7 +40,8 @@ export function PorosityExpressPanel({ wellId, onResultChange }) {
 
             // Цвет в тон треку
             let color = '#666';
-            if (mnemonic.startsWith('PHID')) color = '#E65100';
+            if (mnemonic === 'PHI_ND') color = '#00897B';
+            else if (mnemonic.startsWith('PHID')) color = '#E65100';
             else if (mnemonic.startsWith('PHIN')) color = '#0277BD';
             else if (mnemonic.startsWith('PHIS')) color = '#6A1B9A';
 
@@ -79,6 +80,7 @@ export function PorosityExpressPanel({ wellId, onResultChange }) {
             <br />
             <span style={{ color: '#E65100', fontWeight: 600 }}>PHID</span> · {' '}
             <span style={{ color: '#0277BD', fontWeight: 600 }}>PHIN</span> · {' '}
+            <span style={{ color: '#00897B', fontWeight: 600 }}>PHI_ND</span> · {' '}
             <span style={{ color: '#6A1B9A', fontWeight: 600 }}>PHIS</span>
           </div>
         </div>
