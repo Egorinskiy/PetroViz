@@ -7,8 +7,6 @@
 
 .App {
   padding: var(--space-3) var(--space-4);
-  max-width: 1600px;
-  margin: 0 auto;
 }
 
 /* ============================================================================
@@ -26,6 +24,25 @@
 
 .topbar-logo {
   flex-shrink: 0;
+}
+
+.topbar-well {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-4);
+  min-width: 0;
+  max-width: 260px;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  color: var(--color-brand-navy);
+}
+
+.topbar-well-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .admin-badge {
@@ -401,19 +418,6 @@
 
 .well-item.active .well-item-delete {
   color: #ffcdd2;
-}
-
-.well-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
-.well-header h2 {
-  margin: 0;
-  font-size: var(--fs-lg);
-  color: var(--color-brand-navy);
 }
 
 .shared-badge {

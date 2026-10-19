@@ -37,10 +37,13 @@ function MainPage() {
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
-  const [panelOpen, setPanelOpen] = useState(false);
 
   // --- Состояние панели расчётов ---
   const [computationsOpen, setComputationsOpen] = useState(false);
+  const [curvesVisible, setCurvesVisible] = useState(() => {
+    const saved = localStorage.getItem('petroviz.topbar.curvesVisible');
+    return saved !== '0';
+  });
   const [previewData, setPreviewData] = useState(null);
   const [porosityExpress, setPorosityExpress] = useState(null);
   const [fluidZones, setFluidZones] = useState([]);
@@ -106,6 +109,16 @@ function MainPage() {
     setFluidZones([]);
     setSavedTracks([]);
   };
+
+  // --- Видимость блока кривых (B27) ---
+  useEffect(() => {
+    localStorage.setItem(
+      'petroviz.topbar.curvesVisible',
+      curvesVisible ? '1' : '0'
+    );
+  }, [curvesVisible]);
+
+ const handleToggleCurves = () => setCurvesVisible((v) => !v);
 
   // --- Активная скважина ---
   const activeWell = wells.find((w) => w.well_id === activeWellId) || null;
@@ -211,6 +224,11 @@ function MainPage() {
         showComputations={!!activeWellId}
         computationsOpen={computationsOpen}
         onToggleComputations={() => setComputationsOpen((o) => !o)}
+        showCurvesButton={!!activeWellId}
+        curvesVisible={curvesVisible}
+        onToggleCurves={handleToggleCurves}
+        wellName={activeWell?.well_name || activeWell?.filename || null}
+        showSharedBadge={!!activeWell && !activeWell.is_owner}
       />
 
       <div className="main-layout">
@@ -255,30 +273,21 @@ function MainPage() {
             </div>
           )}
 
-          {activeWellId && (
+           {activeWellId && (
             <>
-              <div className="well-header">
-                <h2>
-                  {activeWell?.well_name || activeWell?.filename}
-                </h2>
-                {activeWell && !activeWell.is_owner && (
-                  <span className="badge badge--shared">🌐 Расшаренная</span>
-                )}
-              </div>
+                            {curvesVisible && (
+                <>
+                  <CurvesBar selectedCurves={selectedCurves} />
 
-              <CurvesBar
-                selectedCurves={selectedCurves}
-                isOpen={panelOpen}
-                onToggle={() => setPanelOpen((o) => !o)}
-              />
-
-              {panelOpen && availableCurves.length > 0 && (
-                <CurvesPanel
-                  availableCurves={availableCurves}
-                  curveUnits={curveUnits}
-                  selectedCurves={selectedCurves}
-                  onToggle={toggleCurve}
-                />
+                  {availableCurves.length > 0 && (
+                    <CurvesPanel
+                      availableCurves={availableCurves}
+                      curveUnits={curveUnits}
+                      selectedCurves={selectedCurves}
+                      onToggle={toggleCurve}
+                    />
+                  )}
+                </>
               )}
 
               {dataError && (

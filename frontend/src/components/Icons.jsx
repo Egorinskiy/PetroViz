@@ -208,3 +208,38 @@ export function SaveIcon({ size = 16, className = '' }) {
     </svg>
   );
 }
+
+export function CurvesIcon({ size = 16, className = '' }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M1.5 3.5 Q3.5 2, 5.5 3.5 T9.5 3.5 T13.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M1.5 8 Q3.5 6.5, 5.5 8 T9.5 8 T13.5 8"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M1.5 12.5 Q3.5 11, 5.5 12.5 T9.5 12.5 T13.5 12.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  );
+}

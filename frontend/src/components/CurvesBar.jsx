@@ -2,7 +2,7 @@ import React from 'react';
 
 const MAX_CURVES = 8;
 
-export function CurvesBar({ selectedCurves, isOpen, onToggle }) {
+export function CurvesBar({ selectedCurves }) {
   return (
     <div className="curves-bar">
       <span className="curves-bar-label">Кривые:</span>
@@ -12,12 +12,6 @@ export function CurvesBar({ selectedCurves, isOpen, onToggle }) {
       <span className="curves-bar-count text-sm text-muted">
         {selectedCurves.length}/{MAX_CURVES}
       </span>
-      <button
-        className="btn btn--ghost btn--sm curves-bar-toggle"
-        onClick={onToggle}
-      >
-        {isOpen ? 'Свернуть ▲' : 'Изменить ▼'}
-      </button>
     </div>
   );
 }
