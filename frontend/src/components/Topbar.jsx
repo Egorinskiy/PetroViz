@@ -17,7 +17,7 @@ export function Topbar({
 }) {
   return (
     <div className="topbar">
-      <Logo variant="full" size={28} className="topbar-logo" />
+      <Logo variant="text" size={36} className="topbar-logo" />
       <FileUpload fileName={fileName} onFileSelect={onFileSelect} />
 
       {showComputations && (

@@ -63,7 +63,7 @@ export function RegisterPage() {
         <aside className="auth-banner">
           <div className="auth-banner-content">
             <div className="auth-banner-logo">
-              <Logo variant="icon" size={64} />
+              <Logo variant="pv" size={72} />
             </div>
             <h1 className="auth-banner-title">
               <span className="auth-banner-title-petro">Petro</span>
@@ -81,7 +81,7 @@ export function RegisterPage() {
             </ul>
           </div>
           <div className="auth-banner-footer">
-            PetroViz © 2026 · Академия ТОП
+            PetroViz © 2026 · Васютинский Егор
           </div>
         </aside>
 

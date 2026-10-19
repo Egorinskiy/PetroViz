@@ -14,6 +14,8 @@ export function Logo({ variant = 'full', size = 24, className = '' }) {
       return <IconPV size={size} className={className} />;
     case 'mono':
       return <IconMono size={size} className={className} />;
+    case 'text':
+      return <TextOnly size={size} className={className} />;
     case 'full':
     default:
       return <FullLogo size={size} className={className} />;
@@ -38,7 +40,7 @@ function FullLogo({ size = 24, className = '' }) {
         lineHeight: 1,
       }}
     >
-      <IconCrossover size={iconSize} />
+      <IconPV size={iconSize} />
       <span
         className="logo-full-text"
         style={{
@@ -161,5 +163,24 @@ function IconMono({ size = 28, className = '' }) {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function TextOnly({ size = 24, className = '' }) {
+  return (
+    <span
+      className={`logo-text ${className}`}
+      style={{
+        fontFamily: "'Geist Sans', system-ui, -apple-system, sans-serif",
+        fontSize: `${size}px`,
+        fontWeight: 700,
+        letterSpacing: '-0.5px',
+        lineHeight: 1,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ color: RED_DARK }}>Petro</span>
+      <span style={{ color: NAVY }}>Viz</span>
+    </span>
   );
 }

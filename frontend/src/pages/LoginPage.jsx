@@ -36,7 +36,7 @@ export function LoginPage() {
         <aside className="auth-banner">
           <div className="auth-banner-content">
             <div className="auth-banner-logo">
-              <Logo variant="icon" size={64} />
+              <Logo variant="pv" size={72} />
             </div>
             <h1 className="auth-banner-title">
               <span className="auth-banner-title-petro">Petro</span>
@@ -49,12 +49,21 @@ export function LoginPage() {
             <div className="auth-banner-divider" />
             <ul className="auth-banner-features">
               <li>Загрузка LAS-файлов 1.2 / 2.0</li>
-              <li>Vshale, пористость, Sw, NTG, K</li>
+              <li>
+                Петрофизические расчёты
+                <div className="auth-method-chips">
+                  <span>Vshale</span>
+                  <span>PHI</span>
+                  <span>Sw</span>
+                  <span>NTG</span>
+                  <span>K</span>
+                </div>
+              </li>
               <li>Интерактивные кросс-плоты</li>
             </ul>
           </div>
           <div className="auth-banner-footer">
-            PetroViz © 2026 · Академия ТОП
+            PetroViz © 2026 · Васютинский Егор
           </div>
         </aside>
 

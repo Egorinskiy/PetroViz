@@ -11,6 +11,8 @@ import { CurvesPanel } from './components/CurvesPanel';
 import { WellsSidebar } from './components/WellsSidebar';
 import { ComputationsPanel } from './components/ComputationsPanel';
 import { ResizableSidebar } from './components/ResizableSidebar';
+import { FolderIcon, ChartIcon } from './components/Icons';
+import { Logo } from './components/Logo';
 import WellLogViewer from './components/WellLogViewer';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -219,7 +221,7 @@ function MainPage() {
           defaultWidth={260}
           storageKey="petroviz.sidebar.wells"
           title="Скважины"
-          icon="📁"
+          icon={<FolderIcon size={22} />}
         >
           <WellsSidebar
             wells={wells}
@@ -240,6 +242,9 @@ function MainPage() {
 
           {!activeWellId && (
             <div className="welcome-screen">
+              <div className="welcome-logo">
+                <Logo variant="pv" size={88} />
+              </div>
               <h2>Добро пожаловать, {user?.username}!</h2>
               <p>Выберите скважину слева или загрузите новый LAS-файл.</p>
               {wells.length === 0 && (
@@ -321,7 +326,7 @@ function MainPage() {
             defaultWidth={320}
             storageKey="petroviz.sidebar.computations"
             title="Расчёты"
-            icon="📊"
+            icon={<ChartIcon size={22} />}
           >
             <ComputationsPanel
               well={activeWell}
