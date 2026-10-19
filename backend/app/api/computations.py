@@ -49,11 +49,12 @@ async def preview(
     Расчёт без сохранения. Используется для live-preview в UI.
     """
     svc = ComputationService(session)
-    depth, curves, warnings = await svc.compute_preview(
+    depth, curves, warnings, sources = await svc.compute_preview(
         well_id=data.well_id,
         method=data.method,
         curve_mapping=data.curve_mapping,
         params=data.params,
+        computation_refs=data.computation_refs,
     )
 
     # Собираем ответ
@@ -69,7 +70,9 @@ async def preview(
             values=values,
         )
 
-    return ComputeResponse(depth=depth, curves=curves_resp, warnings=warnings)
+    return ComputeResponse(
+        depth=depth, curves=curves_resp, warnings=warnings, sources=sources,
+    )
 
 @router.post(
     "/wells/{well_id}/computations",
@@ -97,11 +100,12 @@ async def save_computation(
 
     # Считаем расчёт
     svc = ComputationService(session)
-    depth, curves, warnings = await svc.compute_preview(
+    depth, curves, warnings, sources = await svc.compute_preview(
         well_id=str(well_id),
         method=data.method,
         curve_mapping=data.curve_mapping,
         params=data.params,
+        computation_refs=data.computation_refs,
     )
 
     # Пока поддерживаем один output на метод
@@ -111,7 +115,7 @@ async def save_computation(
         for v in series.tolist()
     ]
 
-    # Сохраняем
+    # Сохраняем (с source_refs — для воспроизводимости)
     repo = ComputationRepository(session)
     comp = await repo.save(
         well_id=well_id,
@@ -123,6 +127,7 @@ async def save_computation(
         depth=depth,
         values=values,
         warnings=warnings,
+        source_refs=sources,
     )
     return ComputationMeta(**repo.to_metadata(comp))
 
