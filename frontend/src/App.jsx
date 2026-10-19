@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useWellData } from './hooks/useWellData';
 import { useWellList } from './hooks/useWellList';
 import { useAuth } from './hooks/useAuth';
 import { apiClient } from './api/axiosClient';
@@ -38,12 +37,25 @@ function MainPage() {
   const [dataError, setDataError] = useState(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
 
-  // --- Состояние панели расчётов ---
-  const [computationsOpen, setComputationsOpen] = useState(false);
+  // --- B10: шаг сетки глубин ---
+  const [gridStep, setGridStep] = useState(() => {
+    const saved = localStorage.getItem('petroviz.gridStep');
+    if (!saved || saved === 'auto') return 'auto';
+    const n = Number(saved);
+    return isFinite(n) ? n : 'auto';
+  });
+
+  // --- B6: пользовательский диапазон глубин ---
+  const [depthRange, setDepthRange] = useState(null);
+
+  // --- B27: видимость блока кривых ---
   const [curvesVisible, setCurvesVisible] = useState(() => {
     const saved = localStorage.getItem('petroviz.topbar.curvesVisible');
     return saved !== '0';
   });
+
+  // --- Состояние панели расчётов ---
+  const [computationsOpen, setComputationsOpen] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [porosityExpress, setPorosityExpress] = useState(null);
   const [fluidZones, setFluidZones] = useState([]);
@@ -87,6 +99,21 @@ function MainPage() {
     };
   }, [activeWellId, selectedCurves, fetchCurveData]);
 
+  // --- B27: persist видимости кривых ---
+  useEffect(() => {
+    localStorage.setItem(
+      'petroviz.topbar.curvesVisible',
+      curvesVisible ? '1' : '0'
+    );
+  }, [curvesVisible]);
+
+  // --- B10: persist шага сетки ---
+  useEffect(() => {
+    localStorage.setItem('petroviz.gridStep', String(gridStep));
+  }, [gridStep]);
+
+  const handleToggleCurves = () => setCurvesVisible((v) => !v);
+
   // --- Выбор скважины ---
   const handleSelectWell = (well) => {
     setActiveWellId(well.well_id);
@@ -108,17 +135,8 @@ function MainPage() {
     setPorosityExpress(null);
     setFluidZones([]);
     setSavedTracks([]);
+    setDepthRange(null); // B6: сброс кастомного диапазона при смене скважины
   };
-
-  // --- Видимость блока кривых (B27) ---
-  useEffect(() => {
-    localStorage.setItem(
-      'petroviz.topbar.curvesVisible',
-      curvesVisible ? '1' : '0'
-    );
-  }, [curvesVisible]);
-
- const handleToggleCurves = () => setCurvesVisible((v) => !v);
 
   // --- Активная скважина ---
   const activeWell = wells.find((w) => w.well_id === activeWellId) || null;
@@ -163,6 +181,7 @@ function MainPage() {
         setPorosityExpress(null);
         setFluidZones([]);
         setSavedTracks([]);
+        setDepthRange(null);
       }
       await reload();
     } catch (err) {
@@ -229,6 +248,12 @@ function MainPage() {
         onToggleCurves={handleToggleCurves}
         wellName={activeWell?.well_name || activeWell?.filename || null}
         showSharedBadge={!!activeWell && !activeWell.is_owner}
+        gridStep={gridStep}
+        onGridStepChange={setGridStep}
+        minDepth={activeWell?.start_depth ?? null}
+        maxDepth={activeWell?.stop_depth ?? null}
+        depthRange={depthRange}
+        onDepthRangeChange={setDepthRange}
       />
 
       <div className="main-layout">
@@ -273,9 +298,9 @@ function MainPage() {
             </div>
           )}
 
-           {activeWellId && (
+          {activeWellId && (
             <>
-                            {curvesVisible && (
+              {curvesVisible && (
                 <>
                   <CurvesBar selectedCurves={selectedCurves} />
 
@@ -307,6 +332,9 @@ function MainPage() {
                     porosityExpress={porosityExpress}
                     fluidZones={fluidZones}
                     savedTracks={savedTracks}
+                    gridStep={gridStep}
+                    topDepth={depthRange?.top ?? null}
+                    bottomDepth={depthRange?.bottom ?? null}
                   />
                   {dataLoading && (
                     <div className="loading-overlay">

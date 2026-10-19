@@ -4,7 +4,12 @@ import { buildTracks } from './wellLogViewer/buildTracks';
 import { drawSingleTrack } from './wellLogViewer/drawSingleTrack';
 import { drawCompositeDN } from './wellLogViewer/drawCompositeDN';
 import { drawCompositeRes } from './wellLogViewer/drawCompositeRes';
-import { DEFAULT_SCALE, computeCanvasHeight } from '../constants/depthScales';
+import {
+  DEFAULT_SCALE,
+  computeCanvasHeight,
+  computeGridStep,
+  generateDepthTicks,
+} from '../constants/depthScales';
 
 // Палитра для express-трека пористости
 const POROSITY_COLORS = {
@@ -55,6 +60,9 @@ const WellLogViewer = ({
   porosityExpress = null,
   fluidZones = [],
   savedTracks = [],
+  gridStep = 'auto',
+  topDepth = null,
+  bottomDepth = null,
 }) => {
   const svgRef = useRef(null);
 
@@ -153,7 +161,12 @@ const WellLogViewer = ({
     }
     const innerWidth = currentX - trackGap;
 
-    const depthExtent = d3.extent(wellData.depth);
+    // B6: custom диапазон глубин (если задан)
+    const fullDepthExtent = d3.extent(wellData.depth);
+    const depthExtent = [
+      topDepth != null && isFinite(topDepth) ? topDepth : fullDepthExtent[0],
+      bottomDepth != null && isFinite(bottomDepth) ? bottomDepth : fullDepthExtent[1],
+    ];
     const depthRange = depthExtent[1] - depthExtent[0];
     const innerHeight = computeCanvasHeight(scale, depthRange);
 
@@ -185,16 +198,36 @@ const WellLogViewer = ({
     // Шкала глубины
     const y = d3.scaleLinear().domain(depthExtent).range([0, innerHeight]);
 
+    // B10: шаг сетки
+    const effectiveStep =
+      gridStep === 'auto' || gridStep == null
+        ? computeGridStep(scale, depthRange)
+        : Number(gridStep);
+    const depthTicks = generateDepthTicks(
+      depthExtent[0],
+      depthExtent[1],
+      effectiveStep
+    );
+
     // Горизонтальная сетка
     g.append('g')
-      .call(d3.axisLeft(y).ticks(12).tickSize(-innerWidth).tickFormat(''))
+      .call(
+        d3.axisLeft(y)
+          .tickValues(depthTicks)
+          .tickSize(-innerWidth)
+          .tickFormat('')
+      )
       .selectAll('line')
       .style('stroke', '#d0d0d0')
       .style('stroke-dasharray', '3,2');
 
     // Ось глубины
     g.append('g')
-      .call(d3.axisLeft(y).ticks(12).tickFormat(d3.format('.0f')))
+      .call(
+        d3.axisLeft(y)
+          .tickValues(depthTicks)
+          .tickFormat(d3.format('.0f'))
+      )
       .selectAll('text')
       .style('font-size', '11px');
 
@@ -456,7 +489,7 @@ const WellLogViewer = ({
         .style('fill', '#666')
         .text('Пористость (v/v)');
     }
-  }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, fluidZones, savedTracks]);
+  }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, fluidZones, savedTracks, gridStep, topDepth, bottomDepth]);
 
   return (
     <div style={{ marginTop: '5px' }}>

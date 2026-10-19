@@ -1313,3 +1313,115 @@
     min-width: 260px !important;
   }
 }
+
+/* ============================================================================
+   VIEW CONTROLS (B10, B6) — шаг сетки + диапазон глубин в топбаре
+   ============================================================================ */
+
+.view-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
+.view-control__label {
+  font-size: var(--fs-xs);
+  color: var(--color-text-subtle);
+}
+
+.view-control__select {
+  font-size: var(--fs-sm);
+  padding: 4px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.view-control__select:focus {
+  outline: none;
+  border-color: var(--color-accent-blue);
+}
+
+.view-control--button {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.view-control--button:hover {
+  background: var(--color-bg-hover);
+}
+
+.view-control--button.view-control--active {
+  border-color: var(--color-accent-blue);
+  background: var(--color-info-light);
+}
+
+.view-control__value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: var(--fs-xs);
+}
+
+.depth-range-picker {
+  position: relative;
+}
+
+.depth-range-popover {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 6px;
+  z-index: var(--z-dropdown);
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-3);
+  min-width: 240px;
+}
+
+.depth-range-popover__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.depth-range-popover__row label {
+  flex: 0 0 90px;
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
+.depth-range-popover__row input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: var(--fs-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}
+
+.depth-range-popover__row input:focus {
+  outline: none;
+  border-color: var(--color-accent-blue);
+}
+
+.depth-range-popover__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}

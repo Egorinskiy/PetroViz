@@ -3,6 +3,8 @@ import { FileUpload } from './FileUpload';
 import { ScaleSelector } from './ScaleSelector';
 import { Logo } from './Logo';
 import { ChartIcon, CurvesIcon } from './Icons';
+import { GridStepSelect } from './GridStepSelect';
+import { DepthRangePicker } from './DepthRangePicker';
 
 export function Topbar({
   fileName,
@@ -19,6 +21,13 @@ export function Topbar({
   onToggleCurves,
   wellName = null,
   showSharedBadge = false,
+  // B10 / B6
+  gridStep = 'auto',
+  onGridStepChange,
+  minDepth = null,
+  maxDepth = null,
+  depthRange = null,
+  onDepthRangeChange,
 }) {
   return (
     <div className="topbar">
@@ -72,6 +81,19 @@ export function Topbar({
             <span className="badge badge--shared">shared</span>
           )}
         </div>
+      )}
+
+      {showScale && onGridStepChange && (
+        <GridStepSelect value={gridStep} onChange={onGridStepChange} />
+      )}
+
+      {showScale && onDepthRangeChange && minDepth != null && maxDepth != null && (
+        <DepthRangePicker
+          minDepth={minDepth}
+          maxDepth={maxDepth}
+          value={depthRange}
+          onChange={onDepthRangeChange}
+        />
       )}
 
       {showScale && <ScaleSelector value={scale} onChange={onScaleChange} />}
