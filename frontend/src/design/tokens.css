@@ -6,12 +6,13 @@
 
 :root {
   /* ============ Бренд ============ */
-  --color-brand-navy:       #1A3D5C;
-  --color-brand-red:        #C62828;
-  --color-brand-red-dark:   #B71C1C;
-  --color-brand-yellow:     #FFD54F;
-  --color-accent-blue:      #007BFF;
-  --color-accent-blue-dark: #0056B3;
+  --color-brand-navy:        #1A3D5C;
+  --color-brand-red:         #C62828;
+  --color-brand-red-dark:    #B71C1C;
+  --color-brand-yellow:      #FFD54F;
+  --color-accent-blue:       #2C5282;
+  --color-accent-blue-dark:  #25466E;
+  --color-accent-blue-light: #4A7BA6;
 
   /* ============ Семантика ============ */
   --color-success:  #2E7D32;
@@ -20,8 +21,8 @@
   --color-warning-light: #FFF8E1;
   --color-danger:   #C62828;
   --color-danger-light: #FFEBEE;
-  --color-info:     #1565C0;
-  --color-info-light: #E3F2FD;
+  --color-info:     #2C5282;
+  --color-info-light: #EAF0F6;
 
   /* ============ Геофизическая палитра (кривые) ============ */
   --color-curve-gr:    #2E7D32;   /* гамма-каротаж */

@@ -304,8 +304,11 @@ export function PorosityExpressPanel({
               flex: 1,
               background: 'transparent',
               border: 'none',
-              borderBottom: subTab === key ? '2px solid #1565c0' : '2px solid transparent',
-              color: subTab === key ? '#1565c0' : '#666',
+              borderBottom:
+                subTab === key
+                  ? '2px solid var(--color-accent-blue)'
+                  : '2px solid transparent',
+              color: subTab === key ? 'var(--color-accent-blue)' : '#666',
               fontWeight: subTab === key ? 600 : 400,
               padding: '6px 4px',
               cursor: 'pointer',
@@ -497,7 +500,9 @@ function EditableNumber({ value, decimals, unit, min, max, onCommit }) {
           step={Math.pow(10, -decimals)}
           style={{
             width: 60, fontSize: 11, fontFamily: 'monospace', fontWeight: 600,
-            padding: '1px 4px', border: '1px solid #1565c0', borderRadius: 3,
+            padding: '1px 4px',
+            border: '1px solid var(--color-accent-blue)',
+            borderRadius: 3,
             textAlign: 'right',
           }}
         />
