@@ -2,6 +2,7 @@ import React from 'react';
 import { FileUpload } from './FileUpload';
 import { ScaleSelector } from './ScaleSelector';
 import { Logo } from './Logo';
+import { ChartIcon } from './Icons';
 
 export function Topbar({
   fileName,
@@ -21,13 +22,19 @@ export function Topbar({
 
       {showComputations && (
         <button
-          className={`btn btn--sm ${
+          className={`btn ${
             computationsOpen ? 'btn--primary' : 'btn--secondary'
           }`}
           onClick={onToggleComputations}
           title="Панель петрофизических расчётов"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
         >
-          📊 Расчёты
+          <ChartIcon size={16} />
+          <span>Расчёты</span>
         </button>
       )}
 

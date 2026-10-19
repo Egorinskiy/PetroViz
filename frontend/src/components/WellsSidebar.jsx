@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { FolderIcon, GlobeIcon } from './Icons';
 
 export function WellsSidebar({
   wells,
@@ -94,7 +95,7 @@ export function WellsSidebar({
               onClick={() => onSelect(w)}
             >
               <div className="well-item-icon">
-                {w.is_owner ? '📁' : '🌐'}
+                {w.is_owner ? <FolderIcon size={14} /> : <GlobeIcon size={14} />}
               </div>
               <div className="well-item-content">
                 <div className="well-item-name" title={w.well_name || w.filename}>

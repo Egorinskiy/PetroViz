@@ -6,6 +6,7 @@ import { ParamSlider } from './ParamSlider';
 import { CurveMappingSelect } from './CurveMappingSelect';
 import { PorosityExpressPanel } from './PorosityExpressPanel';
 import { SourceSelector } from './SourceSelector';
+import { EyeIcon, EyeOffIcon, TrashIcon, SaveIcon } from './Icons';
 
 export function ComputationsPanel({
   well,
@@ -309,9 +310,23 @@ export function ComputationsPanel({
                       ? 'Сначала дождитесь расчёта'
                       : 'Сохранить расчёт в БД'
                   }
-                  style={{ width: '100%', display: 'block', flexShrink: 0 }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    flexShrink: 0,
+                  }}
                 >
-                  {saving ? 'Сохранение…' : '💾 Сохранить расчёт'}
+                  {saving ? (
+                    'Сохранение…'
+                  ) : (
+                    <>
+                      <SaveIcon size={16} />
+                      <span>Сохранить расчёт</span>
+                    </>
+                  )}
                 </button>
 
                 {saveError && (
@@ -389,8 +404,9 @@ export function ComputationsPanel({
                     onClick={() =>
                       onTrack ? onHideSaved(item.id) : onShowSaved(item.id)
                     }
+                    style={{ padding: '4px 6px' }}
                   >
-                    {onTrack ? '🚫' : '👁'}
+                    {onTrack ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
                   </button>
                   <button
                     className="btn btn--ghost btn--sm"
@@ -405,8 +421,9 @@ export function ComputationsPanel({
                         if (onTrack) onHideSaved(item.id);
                       }
                     }}
+                    style={{ padding: '4px 6px' }}
                   >
-                    🗑
+                    <TrashIcon size={14} />
                   </button>
                 </div>
               );
