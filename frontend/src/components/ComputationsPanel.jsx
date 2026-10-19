@@ -10,6 +10,8 @@ export function ComputationsPanel({
   well,
   onPreviewChange,
   onExpressChange,
+  zones = [],
+  onZonesChange,
   onClose,
   savedTracks = [],
   onShowSaved,
@@ -370,6 +372,8 @@ export function ComputationsPanel({
         <PorosityExpressPanel
           wellId={wellId}
           onResultChange={setExpressData}
+          zones={zones}
+          onZonesChange={onZonesChange}
         />
       )}
     </aside>

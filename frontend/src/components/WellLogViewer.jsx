@@ -13,6 +13,19 @@ const POROSITY_COLORS = {
   PHI_ND: '#00897B',
   PHIS: '#6A1B9A',
 };
+// Цвета и подписи для fluid zones
+const FLUID_COLORS = {
+  water: '#0277BD',
+  oil: '#2E7D32',
+  gas: '#C62828',
+  custom: '#666666',
+};
+const FLUID_LABELS = {
+  water: 'Вода',
+  oil: 'Нефть',
+  gas: 'Газ',
+  custom: 'Custom',
+};
 
 const WellLogViewer = ({
   wellData,
@@ -21,6 +34,7 @@ const WellLogViewer = ({
   scale = DEFAULT_SCALE,
   previewData = null,
   porosityExpress = null,
+  fluidZones = [],
   savedTracks = [],
 }) => {
   const svgRef = useRef(null);
@@ -253,6 +267,45 @@ const WellLogViewer = ({
         .attr('width', trackWidth).attr('height', innerHeight)
         .attr('fill', 'none').attr('stroke', '#00897B');
 
+      // ===== Fluid zones — полупрозрачные полоски =====
+      if (fluidZones && fluidZones.length > 0) {
+        for (const zone of fluidZones) {
+          const color = FLUID_COLORS[zone.fluid] || FLUID_COLORS.custom;
+          const label = FLUID_LABELS[zone.fluid] || 'Custom';
+          const yFrom = y(zone.from);
+          const yTo = y(zone.to);
+          if (!isFinite(yFrom) || !isFinite(yTo)) continue;
+
+          const yTop = Math.min(yFrom, yTo);
+          const yHeight = Math.abs(yTo - yFrom);
+          if (yHeight < 1) continue;
+
+          // Фоновая полоска
+          g.append('rect')
+            .attr('x', xOffset)
+            .attr('y', yTop)
+            .attr('width', trackWidth)
+            .attr('height', yHeight)
+            .attr('fill', color)
+            .attr('opacity', 0.12)
+            .attr('stroke', color)
+            .attr('stroke-width', 0.5)
+            .attr('stroke-opacity', 0.4);
+
+          // Подпись — если полоска достаточно высокая
+          if (yHeight > 24) {
+            g.append('text')
+              .attr('x', xOffset + trackWidth - 4)
+              .attr('y', yTop + 11)
+              .attr('text-anchor', 'end')
+              .style('font-size', '9px')
+              .style('font-weight', 'bold')
+              .style('fill', color)
+              .style('opacity', 0.85)
+              .text(`${label} ${zone.rho_fluid.toFixed(2)}`);
+          }
+        }
+      }
       // Ось: 0..0.6
       const x = d3.scaleLinear()
         .domain([0, 0.6])
@@ -332,7 +385,7 @@ const WellLogViewer = ({
         .style('fill', '#666')
         .text('Пористость (v/v)');
     }
-  }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, savedTracks]);
+  }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, fluidZones, savedTracks]);
 
   return (
     <div style={{ marginTop: '5px' }}>

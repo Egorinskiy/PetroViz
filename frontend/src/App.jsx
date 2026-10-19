@@ -38,8 +38,9 @@ function MainPage() {
 
   // --- Состояние панели расчётов ---
   const [computationsOpen, setComputationsOpen] = useState(false);
-  const [previewData, setPreviewData] = useState(null);        // Одиночный расчёт
-  const [porosityExpress, setPorosityExpress] = useState(null); // Экспресс-пористость
+  const [previewData, setPreviewData] = useState(null);
+  const [porosityExpress, setPorosityExpress] = useState(null);
+  const [fluidZones, setFluidZones] = useState([]);
   const [savedTracks, setSavedTracks] = useState([]);
 
   const MAX_CURVES = 12;
@@ -99,6 +100,7 @@ function MainPage() {
     setWellData(null);
     setPreviewData(null);
     setPorosityExpress(null);
+    setFluidZones([]);
     setSavedTracks([]);
   };
 
@@ -143,6 +145,7 @@ function MainPage() {
         setWellData(null);
         setPreviewData(null);
         setPorosityExpress(null);
+        setFluidZones([]);
         setSavedTracks([]);
       }
       await reload();
@@ -277,6 +280,7 @@ function MainPage() {
                     scale={scale}
                     previewData={previewData}
                     porosityExpress={porosityExpress}
+                    fluidZones={fluidZones}
                     savedTracks={savedTracks}
                   />
                   {dataLoading && (
@@ -303,6 +307,8 @@ function MainPage() {
             well={activeWell}
             onPreviewChange={setPreviewData}
             onExpressChange={handleExpressChange}
+            zones={fluidZones}
+            onZonesChange={setFluidZones}
             onClose={() => setComputationsOpen(false)}
             savedTracks={savedTracks}
             onShowSaved={handleShowSaved}

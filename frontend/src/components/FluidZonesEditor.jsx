@@ -12,9 +12,13 @@ import { FLUID_PRESETS } from '../hooks/usePorosityExpress';
  */
 export function FluidZonesEditor({ zones, onChange, minDepth, maxDepth }) {
   const handleAdd = () => {
-    const step = 50; // 50 м
-    const defaultFrom = minDepth ?? 0;
-    const defaultTo = Math.min((minDepth ?? 0) + step, maxDepth ?? step);
+    const step = 50;
+    // Новая зона начинается там, где закончилась последняя
+    const lastTo = zones.length > 0
+      ? Math.max(...zones.map((z) => z.to))
+      : (minDepth ?? 0);
+    const defaultFrom = lastTo;
+    const defaultTo = Math.min(lastTo + step, maxDepth ?? lastTo + step);
     const newZone = {
       id: `zone-${Date.now()}`,
       from: Math.round(defaultFrom),

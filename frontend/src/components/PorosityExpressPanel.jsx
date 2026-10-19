@@ -15,14 +15,17 @@ const POROSITY_COLORS = {
   PHIS: '#6A1B9A',
 };
 
-export function PorosityExpressPanel({ wellId, onResultChange }) {
+export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZonesChange }) {
   const [params, setParams] = React.useState(DEFAULT_EXPRESS_PARAMS);
   const [lithology, setLithology] = React.useState('sandstone');
   const [visible, setVisible] = React.useState({
     PHID: true, PHIN: true, PHI_ND: true, PHIS: true,
   });
   const [subTab, setSubTab] = React.useState('track');
-  const [fluidZones, setFluidZones] = React.useState([]);
+
+  // fluidZones теперь приходят сверху — синхронизированы с WellLogViewer
+  const fluidZones = zones;
+  const setFluidZones = onZonesChange || (() => {});
 
   const { previewData, loading, error } = usePorosityExpress({
     wellId,
