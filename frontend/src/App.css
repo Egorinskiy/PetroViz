@@ -549,17 +549,282 @@
 }
 
 /* ============================================================================
-   AUTH PAGES (дополнение к design-system)
+   AUTH PAGES — двухколоночный layout (баннер + форма)
    ============================================================================ */
 
-.auth-logo {
+.auth-page {
+  min-height: 100vh;
   display: flex;
+  align-items: center;
   justify-content: center;
-  margin-bottom: var(--space-4);
+  padding: var(--space-5);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(26, 61, 92, 0.06), transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(198, 40, 40, 0.05), transparent 45%),
+    var(--color-bg-muted);
+}
+
+.auth-layout {
+  display: flex;
+  width: 100%;
+  max-width: 980px;
+  min-height: 560px;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.auth-layout--narrow {
+  max-width: 480px;
+  min-height: auto;
+}
+
+/* --- ЛЕВЫЙ БАННЕР --- */
+.auth-banner {
+  flex: 0 0 44%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-6) var(--space-5);
+  color: #fff;
+  background:
+    linear-gradient(160deg, #1A3D5C 0%, #224C72 45%, #8B2520 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Декоративный паттерн: тонкие линии сетки */
+.auth-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+
+.auth-banner-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-banner-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.auth-banner-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  line-height: 1;
+}
+
+.auth-banner-title-petro {
+  color: #fff;
+}
+
+.auth-banner-title-viz {
+  color: #FFD54F;
+}
+
+.auth-banner-slogan {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 340px;
+}
+
+.auth-banner-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  width: 60px;
+}
+
+.auth-banner-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.auth-banner-features li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.auth-banner-features li::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FFD54F;
+  flex-shrink: 0;
+}
+
+.auth-banner-footer {
+  position: relative;
+  z-index: 1;
+  font-size: var(--fs-xs);
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.3px;
+}
+
+/* --- ПРАВАЯ КОЛОНКА С ФОРМОЙ --- */
+.auth-form-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-6);
+  min-width: 0;
+}
+
+.auth-form {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.auth-form-header {
+  margin-bottom: var(--space-2);
+}
+
+.auth-form-title {
+  margin: 0 0 var(--space-1) 0;
+  font-size: 22px;
+  font-weight: var(--fw-bold);
+  color: var(--color-brand-navy);
+  letter-spacing: -0.3px;
+}
+
+.auth-form-subtitle {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
 
 .auth-field {
-  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.auth-required {
+  color: var(--color-danger);
+  font-weight: var(--fw-bold);
+}
+
+.auth-label-hint {
+  margin-left: var(--space-2);
+  color: var(--color-text-subtle);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.auth-hint {
+  margin: var(--space-3) 0 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
+.auth-hint a {
+  color: var(--color-accent-blue);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.auth-hint a:hover {
+  text-decoration: underline;
+}
+
+.auth-success-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-success-light);
+  color: var(--color-success);
+  font-size: 32px;
+  font-weight: var(--fw-bold);
+}
+
+/* --- Адаптив --- */
+@media (max-width: 720px) {
+  .auth-page {
+    padding: var(--space-3);
+  }
+
+  .auth-layout {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .auth-banner {
+    flex: 0 0 auto;
+    padding: var(--space-5) var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .auth-banner-content {
+    gap: var(--space-3);
+  }
+
+  .auth-banner-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+
+  .auth-banner-title {
+    font-size: 24px;
+  }
+
+  .auth-banner-slogan {
+    font-size: var(--fs-sm);
+  }
+
+  .auth-banner-features {
+    display: none; /* на мобильном — компактнее */
+  }
+
+  .auth-banner-footer {
+    display: none;
+  }
+
+  .auth-form-side {
+    padding: var(--space-5) var(--space-4);
+  }
 }
 
 /* ============================================================================
