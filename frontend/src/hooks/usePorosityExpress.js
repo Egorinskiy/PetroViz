@@ -3,7 +3,6 @@ import { computationsApi } from '../api/computations';
 
 const DEBOUNCE_MS = 400;
 
-// Дефолты параметров express
 export const DEFAULT_EXPRESS_PARAMS = {
   rho_matrix: 2.65,
   rho_fluid: 1.0,
@@ -11,14 +10,12 @@ export const DEFAULT_EXPRESS_PARAMS = {
   dt_fluid: 189.0,
 };
 
-// Пресеты литологии
 export const LITHOLOGY_PRESETS = {
   sandstone: { label: 'Песчаник (кварц)', rho_matrix: 2.65, dt_matrix: 55.5 },
   limestone: { label: 'Известняк',        rho_matrix: 2.71, dt_matrix: 47.5 },
   dolomite:  { label: 'Доломит',          rho_matrix: 2.87, dt_matrix: 43.5 },
 };
 
-// Пресеты флюидов для зон
 export const FLUID_PRESETS = {
   water:  { label: 'Вода',       rho: 1.0,  color: '#0277BD' },
   oil:    { label: 'Нефть',      rho: 0.8,  color: '#2E7D32' },
@@ -26,9 +23,21 @@ export const FLUID_PRESETS = {
   custom: { label: 'Кастомный',  rho: null, color: '#666666' },
 };
 
-/**
- * Собирает 4 метода express с учётом текущих параметров и fluid zones.
- */
+// Резервные цвета для внешних кривых — тёмные, ближе к чёрному
+// (не пересекаются с POROSITY_COLORS: оранжевый / синий / бирюзовый / фиолетовый)
+export const EXTERNAL_COLORS = [
+  '#212121', // почти чёрный
+  '#4E342E', // тёмно-коричневый
+  '#880E4F', // тёмно-розовый
+  '#37474F', // тёмный сине-серый
+  '#1B5E20', // тёмно-зелёный
+  '#827717', // тёмно-оливковый
+];
+
+export function getExternalColor(index) {
+  return EXTERNAL_COLORS[index % EXTERNAL_COLORS.length];
+}
+
 function buildMethods(p, fluidZones) {
   const zones = fluidZones && fluidZones.length > 0 ? fluidZones : undefined;
 
@@ -68,7 +77,13 @@ function buildMethods(p, fluidZones) {
   ];
 }
 
-export function usePorosityExpress({ wellId, enabled, expressParams, fluidZones }) {
+export function usePorosityExpress({
+  wellId,
+  enabled,
+  expressParams,
+  fluidZones,
+  externalCurves = [],   // [{mnemonic, unit}]
+}) {
   const [previewData, setPreviewData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -76,9 +91,11 @@ export function usePorosityExpress({ wellId, enabled, expressParams, fluidZones 
   const debounceRef = useRef(null);
 
   const params = expressParams || DEFAULT_EXPRESS_PARAMS;
-  // Ключ зависит и от params, и от zones — чтобы debounce срабатывал при любых изменениях
   const paramsKey = JSON.stringify(params);
   const zonesKey = JSON.stringify(fluidZones || []);
+  const externalKey = JSON.stringify(
+    (externalCurves || []).map((c) => c.mnemonic).sort()
+  );
 
   const run = useCallback(async () => {
     if (!wellId) return;
@@ -86,19 +103,27 @@ export function usePorosityExpress({ wellId, enabled, expressParams, fluidZones 
     setLoading(true);
     setError(null);
     try {
-      const results = await Promise.all(
-        methods.map((m) =>
-          computationsApi
-            .preview(wellId, m.key, m.mapping, m.params)
-            .then((data) => ({ ok: true, key: m.key, mnemonic: m.label, data }))
-            .catch((err) => ({
-              ok: false,
-              key: m.key,
-              mnemonic: m.label,
-              error: err.response?.data?.detail || err.message,
-            }))
-        )
+      const calcPromises = methods.map((m) =>
+        computationsApi
+          .preview(wellId, m.key, m.mapping, m.params)
+          .then((data) => ({ ok: true, kind: 'calc', key: m.key, mnemonic: m.label, data }))
+          .catch((err) => ({
+            ok: false, kind: 'calc', key: m.key, mnemonic: m.label,
+            error: err.response?.data?.detail || err.message,
+          }))
       );
+
+      const externalPromises = (externalCurves || []).map((c) =>
+        computationsApi
+          .externalCurve(wellId, c.mnemonic)
+          .then((data) => ({ ok: true, kind: 'external', mnemonic: c.mnemonic, data }))
+          .catch((err) => ({
+            ok: false, kind: 'external', mnemonic: c.mnemonic,
+            error: err.response?.data?.detail || err.message,
+          }))
+      );
+
+      const results = await Promise.all([...calcPromises, ...externalPromises]);
 
       const merged = { depth: null, curves: {}, warnings: [] };
       const pm = {};
@@ -109,11 +134,21 @@ export function usePorosityExpress({ wellId, enabled, expressParams, fluidZones 
           continue;
         }
         if (!merged.depth) merged.depth = r.data.depth;
-        for (const [mnemonic, curve] of Object.entries(r.data.curves)) {
-          merged.curves[mnemonic] = curve;
+        if (r.kind === 'calc') {
+          for (const [mnemonic, curve] of Object.entries(r.data.curves)) {
+            merged.curves[mnemonic] = curve;
+          }
+          merged.warnings.push(...(r.data.warnings || []));
+          pm[r.key] = r.data;
+        } else {
+          // Внешняя кривая — { values, unit }
+          merged.curves[r.data.mnemonic] = {
+            mnemonic: r.data.mnemonic,
+            unit: r.data.unit,
+            values: r.data.values,
+            isExternal: true,
+          };
         }
-        merged.warnings.push(...(r.data.warnings || []));
-        pm[r.key] = r.data;
       }
 
       setPreviewData(merged);
@@ -124,7 +159,7 @@ export function usePorosityExpress({ wellId, enabled, expressParams, fluidZones 
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wellId, paramsKey, zonesKey]);
+  }, [wellId, paramsKey, zonesKey, externalKey]);
 
   useEffect(() => {
     if (!enabled || !wellId) return;
@@ -133,7 +168,7 @@ export function usePorosityExpress({ wellId, enabled, expressParams, fluidZones 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [enabled, wellId, run, paramsKey, zonesKey]);
+  }, [enabled, wellId, run, paramsKey, zonesKey, externalKey]);
 
   useEffect(() => {
     if (!enabled) {

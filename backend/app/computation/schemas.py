@@ -80,3 +80,17 @@ class ComputeResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     # NEW: role → computation_id — какие источники использованы
     sources: dict[str, str] | None = None
+
+
+class ExternalCurveRequest(BaseModel):
+    """Запрос на получение кривой из LAS без расчёта."""
+    well_id: str
+    mnemonic: str
+
+
+class ExternalCurveResponse(BaseModel):
+    """Кривая из LAS в формате preview (для сравнения с расчётными)."""
+    mnemonic: str
+    unit: str | None = None
+    depth: list[float]
+    values: list[float | None]

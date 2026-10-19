@@ -28,6 +28,21 @@ export const computationsApi = {
       .then((r) => r.data),
 
   /**
+   * Возвращает кривую из LAS в формате preview — без расчёта.
+   * Используется для B13 — внешние кривые в Express-пористости.
+   * @param {string} wellId
+   * @param {string} mnemonic - имя кривой из скважины
+   * @returns {Promise<{mnemonic, unit, depth, values}>}
+   */
+  externalCurve: (wellId, mnemonic) =>
+    apiClient
+      .post('/computations/external-curve', {
+        well_id: wellId,
+        mnemonic,
+      })
+      .then((r) => r.data),
+
+  /**
    * Сохраняет текущий расчёт (backend пересчитывает preview и сохраняет).
    * @returns {Promise<ComputationMeta>}
    */

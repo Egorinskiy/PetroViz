@@ -419,6 +419,7 @@ export function ComputationsPanel({
       {activeTab === 'porosity' && (
         <PorosityExpressPanel
           wellId={wellId}
+          availableCurves={availableCurves}
           onResultChange={setExpressData}
           zones={zones}
           onZonesChange={onZonesChange}

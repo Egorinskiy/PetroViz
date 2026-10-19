@@ -3,6 +3,7 @@ import {
   usePorosityExpress,
   DEFAULT_EXPRESS_PARAMS,
   LITHOLOGY_PRESETS,
+  getExternalColor,
 } from '../hooks/usePorosityExpress';
 import { PorosityCrossplots } from './PorosityCrossplots';
 import { PorosityStatistics } from './PorosityStatistics';
@@ -15,15 +16,24 @@ const POROSITY_COLORS = {
   PHIS: '#6A1B9A',
 };
 
-export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZonesChange }) {
+const BUILTIN_MNEMONICS = ['PHID', 'PHIN', 'PHI_ND', 'PHIS'];
+
+export function PorosityExpressPanel({
+  wellId,
+  availableCurves = [],
+  onResultChange,
+  zones = [],
+  onZonesChange,
+}) {
   const [params, setParams] = React.useState(DEFAULT_EXPRESS_PARAMS);
   const [lithology, setLithology] = React.useState('sandstone');
+  const [subTab, setSubTab] = React.useState('track');
+  const [externalCurves, setExternalCurves] = React.useState([]);
+  // visible — теперь по всем кривым (включая внешние)
   const [visible, setVisible] = React.useState({
     PHID: true, PHIN: true, PHI_ND: true, PHIS: true,
   });
-  const [subTab, setSubTab] = React.useState('track');
 
-  // fluidZones теперь приходят сверху — синхронизированы с WellLogViewer
   const fluidZones = zones;
   const setFluidZones = onZonesChange || (() => {});
 
@@ -32,14 +42,25 @@ export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZon
     enabled: !!wellId,
     expressParams: params,
     fluidZones,
+    externalCurves,
   });
 
-  // Границы глубин (для дефолта новых зон)
   const depthRange = React.useMemo(() => {
     const d = previewData?.depth;
     if (!d || d.length === 0) return { min: 0, max: 100 };
     return { min: d[0], max: d[d.length - 1] };
   }, [previewData]);
+
+  // Список для добавления — кривые скважины, которых нет в express
+  const addableCurves = React.useMemo(() => {
+    const used = new Set([
+      ...BUILTIN_MNEMONICS,
+      ...externalCurves.map((c) => c.mnemonic),
+    ]);
+    return (availableCurves || []).filter(
+      (c) => c.mnemonic && !used.has(c.mnemonic)
+    );
+  }, [availableCurves, externalCurves]);
 
   // Проброс наверх — с учётом видимости
   React.useEffect(() => {
@@ -82,6 +103,36 @@ export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZon
   };
 
   const isChecked = (mnemonic) => visible[mnemonic] !== false;
+
+  // --- Внешние кривые ---
+  const addExternal = (e) => {
+    const mnemonic = e.target.value;
+    if (!mnemonic) return;
+    const curve = availableCurves.find((c) => c.mnemonic === mnemonic);
+    if (!curve) return;
+    setExternalCurves((prev) => [
+      ...prev,
+      { mnemonic: curve.mnemonic, unit: curve.unit },
+    ]);
+    setVisible((prev) => ({ ...prev, [curve.mnemonic]: true }));
+    e.target.value = '';
+  };
+
+  const removeExternal = (mnemonic) => {
+    setExternalCurves((prev) => prev.filter((c) => c.mnemonic !== mnemonic));
+    setVisible((prev) => {
+      const next = { ...prev };
+      delete next[mnemonic];
+      return next;
+    });
+  };
+
+  // Цвет для кривой (расчётная — из фиксированной палитры, внешняя — из резерва)
+  const getCurveColor = (mnemonic) => {
+    if (POROSITY_COLORS[mnemonic]) return POROSITY_COLORS[mnemonic];
+    const idx = externalCurves.findIndex((c) => c.mnemonic === mnemonic);
+    return idx >= 0 ? getExternalColor(idx) : '#666';
+  };
 
   const filteredCurves = React.useMemo(() => {
     if (!previewData) return {};
@@ -139,10 +190,7 @@ export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZon
       <div className="computations-panel__section-title" style={{ marginTop: 14 }}>
         Зоны флюидов
       </div>
-      <div
-        className="text-xs text-muted"
-        style={{ marginBottom: 6, lineHeight: 1.35 }}
-      >
+      <div className="text-xs text-muted" style={{ marginBottom: 6, lineHeight: 1.35 }}>
         ρ<sub>f</sub> переопределяется по интервалам глубины (газ/нефть).
       </div>
       <FluidZonesEditor
@@ -151,6 +199,88 @@ export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZon
         minDepth={depthRange.min}
         maxDepth={depthRange.max}
       />
+
+      {/* --- Внешние кривые --- */}
+      <div className="computations-panel__section-title" style={{ marginTop: 14 }}>
+        Внешние кривые
+      </div>
+      <div className="text-xs text-muted" style={{ marginBottom: 6, lineHeight: 1.35 }}>
+        Добавьте кривую из LAS (например, ЯМК) для сравнения с расчётной пористостью.
+      </div>
+
+      {externalCurves.length > 0 && (
+        <div style={{ marginBottom: 6 }}>
+          {externalCurves.map((c) => {
+            const color = getCurveColor(c.mnemonic);
+            const checked = isChecked(c.mnemonic);
+            return (
+              <div
+                key={c.mnemonic}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '4px 4px',
+                  borderBottom: '1px solid #f0f0f0',
+                  fontSize: 12,
+                  opacity: checked ? 1 : 0.5,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleVisible(c.mnemonic)}
+                />
+                <span
+                  style={{
+                    flex: 1,
+                    fontWeight: 600,
+                    color,
+                    borderBottom: '1px dashed ' + color,
+                  }}
+                  title={`${c.mnemonic}${c.unit ? ', ' + c.unit : ''} (внешняя)`}
+                >
+                  {c.mnemonic}
+                </span>
+                <button
+                  onClick={() => removeExternal(c.mnemonic)}
+                  title="Удалить кривую"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#999',
+                    fontSize: 14,
+                    padding: '0 4px',
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {addableCurves.length > 0 ? (
+        <select
+          className="select"
+          defaultValue=""
+          onChange={addExternal}
+          style={{ width: '100%', fontSize: 12 }}
+        >
+          <option value="">+ Добавить внешнюю кривую…</option>
+          {addableCurves.map((c) => (
+            <option key={c.mnemonic} value={c.mnemonic}>
+              {c.mnemonic}{c.unit ? ` (${c.unit})` : ''}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <div className="text-xs text-muted">
+          Нет доступных кривых для добавления.
+        </div>
+      )}
 
       {/* --- Под-вкладки --- */}
       <div
@@ -206,7 +336,7 @@ export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZon
 
       {loading && !previewData && (
         <div className="text-sm text-muted" style={{ padding: '8px 0' }}>
-          Расчёт 4 методов…
+          Расчёт…
         </div>
       )}
 
@@ -218,9 +348,10 @@ export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZon
                 Кривые на треке
               </div>
               <div style={{ fontSize: 12, marginTop: 8 }}>
-                {Object.entries(previewData.curves).map(([mnemonic]) => {
-                  const color = POROSITY_COLORS[mnemonic] || '#666';
+                {Object.entries(previewData.curves).map(([mnemonic, curve]) => {
+                  const color = getCurveColor(mnemonic);
                   const checked = isChecked(mnemonic);
+                  const isExternal = !!curve.isExternal;
                   return (
                     <label
                       key={mnemonic}
@@ -239,7 +370,20 @@ export function PorosityExpressPanel({ wellId, onResultChange, zones = [], onZon
                         checked={checked}
                         onChange={() => toggleVisible(mnemonic)}
                       />
-                      <span style={{ fontWeight: 600, color }}>{mnemonic}</span>
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          color,
+                          borderBottom: isExternal ? `1px dashed ${color}` : 'none',
+                        }}
+                      >
+                        {mnemonic}
+                      </span>
+                      {isExternal && (
+                        <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>
+                          внешняя
+                        </span>
+                      )}
                     </label>
                   );
                 })}
@@ -325,11 +469,7 @@ function EditableNumber({ value, decimals, unit, min, max, onCommit }) {
     }
   }, [editing]);
 
-  const startEdit = () => {
-    setDraft(display);
-    setEditing(true);
-  };
-
+  const startEdit = () => { setDraft(display); setEditing(true); };
   const commit = () => {
     const num = Number(draft);
     if (Number.isFinite(num)) {
@@ -338,9 +478,7 @@ function EditableNumber({ value, decimals, unit, min, max, onCommit }) {
     }
     setEditing(false);
   };
-
   const cancel = () => setEditing(false);
-
   const onKeyDown = (e) => {
     if (e.key === 'Enter') { e.preventDefault(); commit(); }
     else if (e.key === 'Escape') { e.preventDefault(); cancel(); }

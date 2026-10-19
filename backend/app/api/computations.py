@@ -19,6 +19,7 @@ from ..auth.dependencies import get_current_user
 from ..computation.schemas import (
     ComputeRequest, ComputeResponse, CurveResult,
     MethodsListResponse, MethodSpec,
+    ExternalCurveRequest, ExternalCurveResponse,
 )
 from ..computation.service import ComputationService
 from ..db.models import User
@@ -215,3 +216,58 @@ async def delete_computation(
 
     await repo.delete(comp)
     return None
+
+@router.post(
+    "/computations/external-curve",
+    response_model=ExternalCurveResponse,
+)
+async def get_external_curve(
+    data: ExternalCurveRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Возвращает кривую из LAS в формате preview — без расчёта.
+
+    Нужно для B13: добавить внешнюю кривую (например, ЯМК) в Express-пористость
+    для сравнения с расчётными PHID / PHIN / PHI_ND / PHIS.
+    """
+    well_repo = WellRepository(session)
+    well_uuid = _uuid.UUID(data.well_id)
+
+    # Проверка доступа: скважина видна пользователю
+    well_result = await well_repo.get(well_uuid, user_id=current_user.id)
+    if well_result is None:
+        from ..exceptions import WellNotFoundError
+        raise WellNotFoundError(f"Well '{data.well_id}' not found")
+
+    well, df = well_result
+
+    if data.mnemonic not in df.columns:
+        from ..exceptions import PetroVizError
+        raise PetroVizError(
+            f"Curve '{data.mnemonic}' not found in well data. "
+            f"Available: {list(df.columns)}"
+        )
+
+    series = df[data.mnemonic]
+    depth = df.index.tolist()
+    values = [
+        None if pd.isna(v) else float(v)
+        for v in series.tolist()
+    ]
+
+    # Единицы из метаданных скважины
+    unit = None
+    if well.curves:
+        for c in well.curves:
+            if c.get("mnemonic") == data.mnemonic:
+                unit = c.get("unit")
+                break
+
+    return ExternalCurveResponse(
+        mnemonic=data.mnemonic,
+        unit=unit,
+        depth=depth,
+        values=values,
+    )

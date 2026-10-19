@@ -387,9 +387,24 @@ const WellLogViewer = ({
         .style('stroke', '#a0a0a0')
         .style('stroke-width', '0.9');
 
+      // Внешние цвета — та же палитра, что в usePorosityExpress.js
+      const EXTERNAL_COLORS = [
+        '#212121', '#4E342E', '#880E4F', '#37474F', '#1B5E20', '#827717',
+      ];
+      const externalIndex = {};
+
       expressCurves.forEach(([mnemonic, curve]) => {
         const values = curve.values || [];
-        const color = POROSITY_COLORS[mnemonic] || '#666';
+        const isExternal = !!curve.isExternal;
+        let color;
+        if (POROSITY_COLORS[mnemonic]) {
+          color = POROSITY_COLORS[mnemonic];
+        } else {
+          // Внешняя — цвет из резерва, индекс по порядку
+          const idx = externalIndex[mnemonic] ?? Object.keys(externalIndex).length;
+          externalIndex[mnemonic] = idx;
+          color = EXTERNAL_COLORS[idx % EXTERNAL_COLORS.length];
+        }
 
         const line = d3.line()
           .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
@@ -400,22 +415,37 @@ const WellLogViewer = ({
           .datum(values)
           .attr('fill', 'none')
           .attr('stroke', color)
-          .attr('stroke-width', 1.5)
+          .attr('stroke-width', isExternal ? 1.8 : 1.5)
           .attr('d', line)
           .attr('clip-path', clipId);
       });
 
       const legendX = xOffset;
       expressCurves.forEach(([mnemonic], i) => {
-        const color = POROSITY_COLORS[mnemonic] || '#666';
+        const isExternal = !!expressCurves[i][1].isExternal;
+        let color;
+        if (POROSITY_COLORS[mnemonic]) {
+          color = POROSITY_COLORS[mnemonic];
+        } else {
+          const idx = expressCurves
+            .slice(0, i + 1)
+            .filter(([m]) => !POROSITY_COLORS[m])
+            .map(([m]) => m)
+            .indexOf(mnemonic);
+          color = EXTERNAL_COLORS[idx % EXTERNAL_COLORS.length];
+        }
+
+        const label = isExternal ? `${mnemonic}*` : mnemonic;
         g.append('text')
-          .attr('x', legendX + i * 38)
+          .attr('x', legendX + i * 42)
           .attr('y', innerHeight + 45)
           .attr('text-anchor', 'start')
           .style('font-size', '10px')
           .style('font-weight', 'bold')
           .style('fill', color)
-          .text(mnemonic);
+          .text(label)
+          .append('title')
+          .text(isExternal ? `${mnemonic} (внешняя)` : mnemonic);
       });
 
       g.append('text')
