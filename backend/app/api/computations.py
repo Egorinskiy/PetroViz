@@ -58,6 +58,9 @@ async def preview(
     )
 
     # Собираем ответ
+    method_spec = METHODS.get(data.method, {})
+    output_unit = method_spec.get("output_unit", "v/v")
+
     curves_resp = {}
     for mnemonic, series in curves.items():
         values = [
@@ -66,7 +69,7 @@ async def preview(
         ]
         curves_resp[mnemonic] = CurveResult(
             mnemonic=mnemonic,
-            unit="v/v",
+            unit=output_unit,
             values=values,
         )
 

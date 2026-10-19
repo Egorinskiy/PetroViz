@@ -249,6 +249,8 @@ class ComputationService:
         )
         from ..services.petrophysics.swi import swi_bound_water
         from ..services.petrophysics.archie import sw_archie, r0_archie
+        from ..services.petrophysics.ntg import ntg_cutoff
+        from ..services.petrophysics.permeability import perm_timur_coates
 
         spec = METHODS[method]
         merged = {**{k: v["default"] for k, v in spec["params"].items()}, **params}
@@ -312,6 +314,22 @@ class ComputationService:
             return r0_archie(
                 series["phi"],
                 a=merged["a"], m=merged["m"], rw=merged["rw"],
+            )
+
+        # --- NTG (cutoff) ---
+        if method == "ntg_cutoff":
+            return ntg_cutoff(
+                series["vsh"], series["phi"], series["swi"],
+                vsh_cutoff=merged["vsh_cutoff"],
+                phi_cutoff=merged["phi_cutoff"],
+                swi_cutoff=merged["swi_cutoff"],
+            )
+
+        # --- Проницаемость ---
+        if method == "perm_timur_coates":
+            return perm_timur_coates(
+                series["phi"], series["swi"],
+                c=merged["c"], a=merged["a"], b=merged["b"],
             )
 
         raise MethodNotFoundError(f"Method '{method}' has no implementation")
