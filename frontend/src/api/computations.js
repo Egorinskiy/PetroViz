@@ -16,13 +16,14 @@ export const computationsApi = {
    * @param {Object} params - { paramName: value }
    * @returns {Promise<{depth: number[], curves: Object, warnings: string[]}>}
    */
-  preview: (wellId, method, curveMapping, params) =>
+  preview: (wellId, method, curveMapping, params, computationRefs) =>
     apiClient
       .post('/computations/preview', {
         well_id: wellId,
         method,
         curve_mapping: curveMapping,
         params,
+        computation_refs: computationRefs || {},
       })
       .then((r) => r.data),
 
