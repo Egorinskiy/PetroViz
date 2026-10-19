@@ -13,7 +13,8 @@ class SaveComputationRequest(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
     # Опциональное кастомное имя выходной кривой
     output_mnemonic: str | None = None
-
+    # NEW: role → computation_id — обязательны для Sw/Swi
+    computation_refs: dict[str, str] = Field(default_factory=dict)
 
 class ComputationMeta(BaseModel):
     """Метаданные сохранённого расчёта."""
@@ -27,7 +28,8 @@ class ComputationMeta(BaseModel):
     warnings: list[str]
     num_samples: int
     created_at: str | None
-
+    # NEW: {role: computation_id} — на каких расчётах основан
+    source_refs: dict[str, str] | None = None
 
 class ComputationListResponse(BaseModel):
     items: list[ComputationMeta]

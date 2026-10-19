@@ -16,6 +16,12 @@ class ParamSpec(BaseModel):
     description: str = ""
 
 
+class ComputationRefRequirement(BaseModel):
+    """Требование к сохранённому расчёту (например, 'phi' — из категории 'porosity')."""
+    label: str
+    category: str
+
+
 class MethodSpec(BaseModel):
     """Спецификация метода расчёта."""
     key: str
@@ -24,6 +30,8 @@ class MethodSpec(BaseModel):
     requires: list[str]
     params: dict[str, ParamSpec]
     output: str
+    # NEW: требования к сохранённым расчётам — {role: {label, category}}
+    requires_computations: dict[str, ComputationRefRequirement] = Field(default_factory=dict)
 
 
 class MethodsListResponse(BaseModel):
@@ -45,6 +53,8 @@ class ComputeRequest(BaseModel):
     method: str
     curve_mapping: dict[str, str] = Field(default_factory=dict)
     params: dict[str, Any] = Field(default_factory=dict)
+    # NEW: role → computation_id (UUID сохранённого расчёта)
+    computation_refs: dict[str, str] = Field(default_factory=dict)
 
 
 class CurveResult(BaseModel):
@@ -65,3 +75,5 @@ class ComputeResponse(BaseModel):
     depth: list[float]
     curves: dict[str, CurveResult]
     warnings: list[str] = Field(default_factory=list)
+    # NEW: role → computation_id — какие источники использованы
+    sources: dict[str, str] | None = None

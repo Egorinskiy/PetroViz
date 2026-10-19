@@ -57,6 +57,7 @@ class ComputationRepository:
         depth: list[float],
         values: list,
         warnings: list,
+        source_refs: dict | None = None,  # NEW
     ) -> Computation:
         """Сохраняет расчёт: parquet + запись в БД."""
         comp_id = uuid.uuid4()
@@ -76,6 +77,7 @@ class ComputationRepository:
             data_path=data_path,
             warnings=warnings,
             num_samples=len(values),
+            source_refs=source_refs,  # NEW
         )
         self.session.add(comp)
         await self.session.commit()
@@ -136,4 +138,5 @@ class ComputationRepository:
             "warnings": comp.warnings,
             "num_samples": comp.num_samples,
             "created_at": comp.created_at.isoformat() if comp.created_at else None,
+            "source_refs": comp.source_refs,  # NEW
         }

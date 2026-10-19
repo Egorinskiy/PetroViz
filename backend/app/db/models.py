@@ -172,6 +172,8 @@ class Computation(Base, TimestampMixin):
     data_path: Mapped[str] = mapped_column(String(512), nullable=False)
     warnings: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     num_samples: Mapped[int] = mapped_column(nullable=False)
+    # NEW: источники — {role: computation_id_uuid} для воспроизводимости
+    source_refs: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Связи
     well: Mapped["Well"] = relationship(back_populates="computations")
