@@ -60,11 +60,13 @@ register_method({
     "params": {
         "c1": {
             "default": 0.015, "min": 0.0, "max": 0.1, "step": 0.001,
-            "unit": "v/v", "description": "Коэффициент C1 (свободный член)",
+            "label": "C1 — свободный член",
+            "unit": "v/v", "description": "Минимальная связанная вода в чистом песке",
         },
         "c2": {
             "default": 0.2, "min": 0.0, "max": 0.5, "step": 0.01,
-            "unit": "v/v", "description": "Коэффициент C2 (связь с Vsh)",
+            "label": "C2 — влияние глинистости",
+            "unit": "v/v", "description": "Насколько сильно Vsh увеличивает Swi",
         },
         "swi_min": {
             "default": 0.001, "min": 0.001, "max": 0.3, "step": 0.001,

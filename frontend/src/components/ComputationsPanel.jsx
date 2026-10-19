@@ -5,6 +5,7 @@ import { MethodSelector } from './MethodSelector';
 import { ParamSlider } from './ParamSlider';
 import { CurveMappingSelect } from './CurveMappingSelect';
 import { PorosityExpressPanel } from './PorosityExpressPanel';
+import { SourceSelector } from './SourceSelector';
 
 export function ComputationsPanel({
   well,
@@ -33,6 +34,10 @@ export function ComputationsPanel({
     setParam,
     curveMapping,
     setMapping,
+    computationRefs,
+    setComputationRef,
+    missingRefs,
+    refsIncomplete,
     previewData,
     previewLoading,
     previewError,
@@ -71,6 +76,7 @@ export function ComputationsPanel({
         method: selectedMethodKey,
         curve_mapping: curveMapping,
         params,
+        computation_refs: computationRefs,
       });
     } catch (err) {
       const detail = err.response?.data?.detail || err.message;
@@ -99,7 +105,7 @@ export function ComputationsPanel({
 
   return (
     <aside className="computations-panel">
-      {/* Заголовок */}
+      {/* ============ Заголовок ============ */}
       <div className="computations-panel__header">
         <h3>Расчёты</h3>
         <button
@@ -111,7 +117,7 @@ export function ComputationsPanel({
         </button>
       </div>
 
-      {/* Вкладки */}
+      {/* ============ Табы ============ */}
       <div
         style={{
           display: 'flex',
@@ -145,29 +151,58 @@ export function ComputationsPanel({
       {/* ================== ВКЛАДКА «ОДИНОЧНЫЙ» ================== */}
       {activeTab === 'single' && (
         <>
+          {/* Выбор метода — всегда */}
           <MethodSelector
             methods={methods}
             value={selectedMethodKey}
             onChange={setSelectedMethodKey}
           />
 
+          {/* Всё, что зависит от выбранного метода */}
           {selectedMethod && (
             <>
-              <div className="computations-panel__section">
-                <div className="computations-panel__section-title">
-                  Входные кривые
-                </div>
-                {selectedMethod.requires.map((role) => (
-                  <CurveMappingSelect
-                    key={role}
-                    role={role}
-                    availableCurves={availableCurves}
-                    value={curveMapping[role]}
-                    onChange={setMapping}
-                  />
-                ))}
-              </div>
+              {/* Источники данных (сохранённые расчёты — refs) */}
+              {selectedMethod.requires_computations &&
+                Object.keys(selectedMethod.requires_computations).length > 0 && (
+                  <div className="computations-panel__section">
+                    <div className="computations-panel__section-title">
+                      Источники данных
+                    </div>
+                    {Object.entries(selectedMethod.requires_computations).map(
+                      ([role, req]) => (
+                        <SourceSelector
+                          key={role}
+                          role={role}
+                          requirement={req}
+                          savedItems={savedItems}
+                          methods={methods}
+                          value={computationRefs[role]}
+                          onChange={(id) => setComputationRef(role, id)}
+                        />
+                      )
+                    )}
+                  </div>
+                )}
 
+              {/* Входные кривые из LAS */}
+              {selectedMethod.requires.length > 0 && (
+                <div className="computations-panel__section">
+                  <div className="computations-panel__section-title">
+                    Входные кривые
+                  </div>
+                  {selectedMethod.requires.map((role) => (
+                    <CurveMappingSelect
+                      key={role}
+                      role={role}
+                      availableCurves={availableCurves}
+                      value={curveMapping[role]}
+                      onChange={setMapping}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Параметры метода */}
               {Object.keys(selectedMethod.params).length > 0 && (
                 <div className="computations-panel__section">
                   <div className="computations-panel__section-title">
@@ -185,6 +220,7 @@ export function ComputationsPanel({
                 </div>
               )}
 
+              {/* Статус + Кнопка Сохранить */}
               <div
                 style={{
                   display: 'flex',
@@ -199,6 +235,15 @@ export function ComputationsPanel({
                   className="computations-panel__status"
                   style={{ position: 'static', flexShrink: 0, overflow: 'visible' }}
                 >
+                  {refsIncomplete && (
+                    <div
+                      className="banner banner--warning"
+                      style={{ marginBottom: 6 }}
+                    >
+                      ⚠️ Выберите источники:{' '}
+                      {missingRefs.map((r) => r.label).join(', ')}
+                    </div>
+                  )}
                   {previewLoading && (
                     <span className="text-muted text-sm">Расчёт…</span>
                   )}
@@ -256,9 +301,11 @@ export function ComputationsPanel({
                 <button
                   className="btn btn--primary"
                   onClick={handleSave}
-                  disabled={saving || !previewData}
+                  disabled={saving || !previewData || refsIncomplete}
                   title={
-                    !previewData
+                    refsIncomplete
+                      ? `Выберите: ${missingRefs.map((r) => r.label).join(', ')}`
+                      : !previewData
                       ? 'Сначала дождитесь расчёта'
                       : 'Сохранить расчёт в БД'
                   }
@@ -272,87 +319,7 @@ export function ComputationsPanel({
                 )}
               </div>
 
-              {/* Список сохранённых */}
-              <div className="computations-panel__section" style={{ marginTop: 20 }}>
-                <div className="computations-panel__section-title">
-                  Сохранённые расчёты{' '}
-                  {savedItems.length > 0 && `(${savedItems.length})`}
-                </div>
-
-                {savedError && (
-                  <div className="banner banner--error">{savedError}</div>
-                )}
-
-                {savedLoading && (
-                  <div className="text-sm text-muted">Загрузка…</div>
-                )}
-
-                {!savedLoading && savedItems.length === 0 && (
-                  <div className="text-xs text-muted">
-                    Пока ничего не сохранено.
-                  </div>
-                )}
-
-                {savedItems.map((item) => {
-                  const onTrack = isSavedOnTrack(item.id);
-                  return (
-                    <div
-                      key={item.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 4px',
-                        borderBottom: '1px solid #eee',
-                        fontSize: 12,
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600 }}>
-                          {item.output_mnemonic}
-                          {item.warnings?.length > 0 && ' ⚠️'}
-                        </div>
-                        <div
-                          className="text-xs text-muted"
-                          style={{
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {item.method} · {item.num_samples} т.
-                        </div>
-                      </div>
-                      <button
-                        className="btn btn--ghost btn--sm"
-                        title={onTrack ? 'Скрыть с трека' : 'Показать на треке'}
-                        onClick={() =>
-                          onTrack ? onHideSaved(item.id) : onShowSaved(item.id)
-                        }
-                      >
-                        {onTrack ? '🚫' : '👁'}
-                      </button>
-                      <button
-                        className="btn btn--ghost btn--sm"
-                        title="Удалить"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Удалить расчёт «${item.output_mnemonic}»?`
-                            )
-                          ) {
-                            removeComputation(item.id);
-                            if (onTrack) onHideSaved(item.id);
-                          }
-                        }}
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-
+              {/* Предупреждения preview */}
               {warnings.length > 0 && (
                 <div className="computations-panel__warnings">
                   {warnings.map((w, i) => (
@@ -364,6 +331,87 @@ export function ComputationsPanel({
               )}
             </>
           )}
+
+          {/* ============ СОХРАНЁННЫЕ РАСЧЁТЫ — ВСЕГДА ВИДНЫ ============ */}
+          <div className="computations-panel__section" style={{ marginTop: 20 }}>
+            <div className="computations-panel__section-title">
+              Сохранённые расчёты{' '}
+              {savedItems.length > 0 && `(${savedItems.length})`}
+            </div>
+
+            {savedError && (
+              <div className="banner banner--error">{savedError}</div>
+            )}
+
+            {savedLoading && (
+              <div className="text-sm text-muted">Загрузка…</div>
+            )}
+
+            {!savedLoading && savedItems.length === 0 && (
+              <div className="text-xs text-muted">
+                Пока ничего не сохранено.
+              </div>
+            )}
+
+            {savedItems.map((item) => {
+              const onTrack = isSavedOnTrack(item.id);
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 4px',
+                    borderBottom: '1px solid #eee',
+                    fontSize: 12,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600 }}>
+                      {item.output_mnemonic}
+                      {item.warnings?.length > 0 && ' ⚠️'}
+                    </div>
+                    <div
+                      className="text-xs text-muted"
+                      style={{
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {item.method} · {item.num_samples} т.
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    title={onTrack ? 'Скрыть с трека' : 'Показать на треке'}
+                    onClick={() =>
+                      onTrack ? onHideSaved(item.id) : onShowSaved(item.id)
+                    }
+                  >
+                    {onTrack ? '🚫' : '👁'}
+                  </button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    title="Удалить"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Удалить расчёт «${item.output_mnemonic}»?`
+                        )
+                      ) {
+                        removeComputation(item.id);
+                        if (onTrack) onHideSaved(item.id);
+                      }
+                    }}
+                  >
+                    🗑
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
 

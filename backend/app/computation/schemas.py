@@ -14,7 +14,10 @@ class ParamSpec(BaseModel):
     step: float | int
     unit: str = ""
     description: str = ""
-
+    # NEW: отображаемое имя (если пусто — берётся name)
+    label: str | None = None
+    # NEW: "linear" | "log" — тип шкалы слайдера
+    scale: str | None = None
 
 class ComputationRefRequirement(BaseModel):
     """Требование к сохранённому расчёту (например, 'phi' — из категории 'porosity')."""

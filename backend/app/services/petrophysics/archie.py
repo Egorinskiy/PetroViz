@@ -77,6 +77,31 @@ def r0_archie(
 
     return r0.where(valid)
 
+register_method({
+    "key": "r0_archie",
+    "label": "R0 — сопротивление водонасыщенной породы",
+    "category": "sw",
+    "requires": [],
+    "requires_computations": {
+        "phi": {"label": "Пористость (PHI)", "category": "porosity"},
+    },
+    "params": {
+        "a": {
+            "default": 1.0, "min": 0.5, "max": 1.5, "step": 0.01,
+            "unit": "—", "description": "Коэффициент a",
+        },
+        "m": {
+            "default": 2.0, "min": 1.5, "max": 2.5, "step": 0.01,
+            "unit": "—", "description": "Показатель цементации m",
+        },
+        "rw": {
+            "default": 0.1, "min": 0.005, "max": 10.0, "step": 0.001,
+            "scale": "log", "label": "Rw (сопротивление воды)",
+            "unit": "Ом·м", "description": "Сопротивление пластовой воды Rw",
+        },
+    },
+    "output": "R0",
+})
 
 register_method({
     "key": "sw_archie",
@@ -100,34 +125,11 @@ register_method({
             "unit": "—", "description": "Показатель насыщения n",
         },
         "rw": {
-            "default": 0.1, "min": 0.01, "max": 10.0, "step": 0.01,
+            "default": 0.1, "min": 0.005, "max": 10.0, "step": 0.001,
+            "scale": "log", "label": "Rw (сопротивление воды)",
             "unit": "Ом·м", "description": "Сопротивление пластовой воды Rw",
         },
     },
     "output": "SW",
 })
 
-register_method({
-    "key": "r0_archie",
-    "label": "R0 — сопротивление водонасыщенной породы",
-    "category": "sw",
-    "requires": [],
-    "requires_computations": {
-        "phi": {"label": "Пористость (PHI)", "category": "porosity"},
-    },
-    "params": {
-        "a": {
-            "default": 1.0, "min": 0.5, "max": 1.5, "step": 0.01,
-            "unit": "—", "description": "Коэффициент a",
-        },
-        "m": {
-            "default": 2.0, "min": 1.5, "max": 2.5, "step": 0.01,
-            "unit": "—", "description": "Показатель цементации m",
-        },
-        "rw": {
-            "default": 0.1, "min": 0.01, "max": 10.0, "step": 0.01,
-            "unit": "Ом·м", "description": "Сопротивление пластовой воды Rw",
-        },
-    },
-    "output": "R0",
-})
