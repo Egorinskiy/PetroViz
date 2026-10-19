@@ -28,6 +28,24 @@ const FLUID_LABELS = {
   custom: 'Custom',
 };
 
+// Известные префиксы УЭС (для проверки «есть ли RT на планшете»)
+const RT_PREFIXES = [
+  'RDEP', 'RSHA', 'RMED', 'RXO', 'RMIC',
+  'RT', 'ILD', 'LLD', 'LLS', 'RES',
+  'RLLD', 'RLLS', 'RILD', 'RILM', 'RI', 'RID', 'RIS',
+];
+
+function _isRtCurve(name) {
+  const u = String(name).toUpperCase();
+  // Не путать с RHOB (плотность)
+  if (u.startsWith('RH')) return false;
+  return RT_PREFIXES.some((p) => u.startsWith(p));
+}
+
+function _hasRtCurve(curvesToPlot) {
+  return (curvesToPlot || []).some(_isRtCurve);
+}
+
 const WellLogViewer = ({
   wellData,
   curvesToPlot,
@@ -86,11 +104,16 @@ const WellLogViewer = ({
     const hasCompositeRes = !!compositeResTrack;
     const r0AsOverlay = !!(r0Data && hasCompositeRes);
 
+    // R0 есть, но нет ни composite_res, ни отдельных RT-кривых → показать заглушку
+    const hasRtInPlot = _hasRtCurve(curvesToPlot);
+    const showR0Placeholder = !!(r0Data && !r0AsOverlay && !hasRtInPlot);
+
     // Обычные preview-кривые (всё кроме специальных)
     const regularCurves = Object.entries(allCurves).filter(([m]) => {
       if (m === 'SW' || m === 'SWI') return false;
       if (m === 'NTG' || m === 'PERM') return false;
       if (m === 'R0' && r0AsOverlay) return false;
+      if (m === 'R0' && showR0Placeholder) return false; // вместо трека — заглушка
       return true;
     });
 
@@ -110,6 +133,8 @@ const WellLogViewer = ({
     tracks.forEach(() => trackWidths.push(150));
     // 2. Обычные preview (150)
     regularCurves.forEach(() => trackWidths.push(150));
+    // 2.5. R0 placeholder (150) — если R0 есть, но нет RT на планшете
+    if (showR0Placeholder) trackWidths.push(150);
     // 3. SW/SWI (150)
     if (hasSwSwTrack) trackWidths.push(150);
     // 4. NTG (40 — узкий)
@@ -298,6 +323,12 @@ const WellLogViewer = ({
         .style('fill', color)
         .text(isSaved ? `💾 ${mnemonic}` : mnemonic);
     });
+
+    // 2.5. R0 placeholder — R0 есть, но не с чем сравнивать
+    if (showR0Placeholder) {
+      const idx = currentIdx++;
+      drawR0Placeholder(g, xOffsets[idx], trackWidths[idx], innerHeight);
+    }
 
     // 3. SW/SWI
     if (hasSwSwTrack) {
@@ -601,6 +632,59 @@ function drawPermTrack(g, permData, xOffset, trackWidth, innerHeight, y, clipId)
     .style('font-weight', 'bold')
     .style('fill', '#D84315')
     .text('PERM');
+}
+
+function drawR0Placeholder(g, xOffset, trackWidth, innerHeight) {
+  // Фоновая заливка + пунктирная рамка
+  g.append('rect')
+    .attr('x', xOffset).attr('y', 0)
+    .attr('width', trackWidth).attr('height', innerHeight)
+    .attr('fill', '#f0f0f0')
+    .attr('stroke', '#bbb')
+    .attr('stroke-dasharray', '4,3');
+
+  // Лёгкая диагональная штриховка (намёк на «пусто»)
+  const hatch = 12;
+  for (let y0 = -trackWidth; y0 < innerHeight + trackWidth; y0 += hatch) {
+    g.append('line')
+      .attr('x1', xOffset)
+      .attr('y1', y0)
+      .attr('x2', xOffset + trackWidth)
+      .attr('y2', y0 + trackWidth)
+      .attr('stroke', '#e4e4e4')
+      .attr('stroke-width', 1);
+  }
+
+  // Вертикальный текст по центру (две строки)
+  const cx = xOffset + trackWidth / 2;
+  const cy = innerHeight / 2;
+
+  const text = g.append('text')
+    .attr('transform', `translate(${cx}, ${cy}) rotate(-90)`)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '11px')
+    .style('fill', '#888')
+    .style('font-style', 'italic');
+
+  text.append('tspan')
+    .attr('x', 0)
+    .attr('dy', '-0.6em')
+    .text('Добавьте кривую УЭС на планшет');
+
+  text.append('tspan')
+    .attr('x', 0)
+    .attr('dy', '1.2em')
+    .text('для настройки модели R0');
+
+  // Подпись трека под осью
+  g.append('text')
+    .attr('x', cx)
+    .attr('y', innerHeight + 45)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '11px')
+    .style('font-weight', 'bold')
+    .style('fill', '#999')
+    .text('R0');
 }
 
 export default WellLogViewer;
