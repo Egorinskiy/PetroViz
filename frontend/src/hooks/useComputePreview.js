@@ -6,12 +6,8 @@ const PREVIEW_DEBOUNCE_MS = 400;
 /**
  * Хук для live-preview петрофизических расчётов.
  *
- * Логика:
- *  1. При включении (enabled=true) — загружает список методов.
- *  2. Авто-выбирает первый метод, ставит дефолтные параметры.
- *  3. При любом изменении (метод / параметры / маппинг) — через debounce
- *     отправляет запрос на /computations/preview.
- *  4. Возвращает previewData для отрисовки на треке.
+ * Добавлена поддержка computation_refs — для методов Sw/Swi/R0,
+ * которые требуют валидированных Vsh/PHI из сохранённых расчётов.
  */
 export function useComputePreview({ wellId, enabled }) {
   const [methods, setMethods] = useState([]);
@@ -20,6 +16,7 @@ export function useComputePreview({ wellId, enabled }) {
   const [selectedMethodKey, setSelectedMethodKey] = useState(null);
   const [curveMapping, setCurveMapping] = useState({});
   const [params, setParams] = useState({});
+  const [computationRefs, setComputationRefs] = useState({});
 
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -39,12 +36,8 @@ export function useComputePreview({ wellId, enabled }) {
       .then((data) => {
         if (cancelled) return;
         setMethods(data.methods);
-        if (data.methods.length > 0) {
-          const first = data.methods[0];
-          setSelectedMethodKey(first.key);
-          setParams(_buildDefaultParams(first));
-          setCurveMapping(_buildDefaultMapping(first));
-        }
+        // НЕТ авто-выбора — пользователь сам выбирает метод.
+        // Пустой dropdown → пустой планшет.
       })
       .catch((err) => {
         if (cancelled) return;
@@ -63,16 +56,38 @@ export function useComputePreview({ wellId, enabled }) {
     if (!spec) return;
     setParams(_buildDefaultParams(spec));
     setCurveMapping(_buildDefaultMapping(spec));
+    setComputationRefs(_buildDefaultRefs(spec));
   }, [selectedMethodKey, methods]);
 
   // --- 3. Авто-preview с debounce ---
-  // Для сравнения объектов используем JSON.stringify, чтобы effect
-  // не срабатывал на каждый рендер из-за новой ссылки на объект.
   const paramsKey = JSON.stringify(params);
   const mappingKey = JSON.stringify(curveMapping);
+  const refsKey = JSON.stringify(computationRefs);
+
+  const selectedMethod = methods.find((m) => m.key === selectedMethodKey) || null;
+
+  // Проверка, что все обязательные refs выбраны
+  const missingRefs = (() => {
+    if (!selectedMethod) return [];
+    const required = selectedMethod.requires_computations || {};
+    const missing = [];
+    for (const [role, req] of Object.entries(required)) {
+      if (!computationRefs[role]) {
+        missing.push({ role, label: req.label });
+      }
+    }
+    return missing;
+  })();
+
+  const refsIncomplete = missingRefs.length > 0;
 
   const runPreview = useCallback(async () => {
     if (!wellId || !selectedMethodKey) return;
+    if (refsIncomplete) {
+      setPreviewData(null);
+      setPreviewError(null);
+      return;
+    }
     setPreviewLoading(true);
     setPreviewError(null);
     try {
@@ -80,7 +95,8 @@ export function useComputePreview({ wellId, enabled }) {
         wellId,
         selectedMethodKey,
         curveMapping,
-        params
+        params,
+        computationRefs
       );
       setPreviewData(data);
       setWarnings(data.warnings || []);
@@ -92,10 +108,20 @@ export function useComputePreview({ wellId, enabled }) {
     } finally {
       setPreviewLoading(false);
     }
-  }, [wellId, selectedMethodKey, curveMapping, params]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wellId, selectedMethodKey, curveMapping, params, computationRefs, refsIncomplete]);
 
   useEffect(() => {
-    if (!enabled || !wellId || !selectedMethodKey) return;
+    if (!enabled || !wellId) return;
+
+    // Нет выбранного метода → очищаем preview (трек уходит с планшета)
+    if (!selectedMethodKey) {
+      setPreviewData(null);
+      setPreviewError(null);
+      setWarnings([]);
+      return;
+    }
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       runPreview();
@@ -104,11 +130,15 @@ export function useComputePreview({ wellId, enabled }) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, wellId, selectedMethodKey, paramsKey, mappingKey]);
+  }, [enabled, wellId, selectedMethodKey, paramsKey, mappingKey, refsKey, refsIncomplete]);
 
-  // --- 4. Сброс при закрытии панели / смене скважины ---
+  // --- 4. Полный сброс при закрытии панели (переоткрытие = чистый лист) ---
   useEffect(() => {
     if (!enabled) {
+      setSelectedMethodKey(null);
+      setParams({});
+      setCurveMapping({});
+      setComputationRefs({});
       setPreviewData(null);
       setPreviewError(null);
       setWarnings([]);
@@ -124,7 +154,9 @@ export function useComputePreview({ wellId, enabled }) {
     setCurveMapping((prev) => ({ ...prev, [role]: mnemonic }));
   }, []);
 
-  const selectedMethod = methods.find((m) => m.key === selectedMethodKey) || null;
+  const setComputationRef = useCallback((role, computationId) => {
+    setComputationRefs((prev) => ({ ...prev, [role]: computationId }));
+  }, []);
 
   return {
     // Список методов
@@ -139,6 +171,12 @@ export function useComputePreview({ wellId, enabled }) {
     setParam,
     curveMapping,
     setMapping,
+
+    // Источники (refs)
+    computationRefs,
+    setComputationRef,
+    missingRefs,
+    refsIncomplete,
 
     // Preview
     previewData,
@@ -162,7 +200,16 @@ function _buildDefaultParams(spec) {
 function _buildDefaultMapping(spec) {
   const result = {};
   for (const role of spec.requires) {
-    result[role] = ''; // пусто = авто-детект на бэкенде
+    result[role] = '';
+  }
+  return result;
+}
+
+function _buildDefaultRefs(spec) {
+  const result = {};
+  const required = spec.requires_computations || {};
+  for (const role of Object.keys(required)) {
+    result[role] = '';
   }
   return result;
 }
