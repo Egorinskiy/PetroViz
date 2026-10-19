@@ -5,22 +5,32 @@ const PADDING = 28;
 const INNER = SIZE - PADDING * 2;
 const PHI_MAX = 0.6;
 
-const COLORS = {
+// Встроенные цвета (расчётные кривые)
+const BUILTIN_COLORS = {
   PHID: '#E65100',
   PHIN: '#0277BD',
   PHI_ND: '#00897B',
   PHIS: '#6A1B9A',
 };
 
-// Все комбинации из 4 кривых
-const PAIRS = [
-  ['PHID', 'PHIN'],
-  ['PHID', 'PHI_ND'],
-  ['PHID', 'PHIS'],
-  ['PHIN', 'PHI_ND'],
-  ['PHIN', 'PHIS'],
-  ['PHI_ND', 'PHIS'],
+// Резерв для внешних кривых — совпадает с usePorosityExpress.EXTERNAL_COLORS
+const EXTERNAL_COLORS = [
+  '#212121', '#4E342E', '#880E4F', '#37474F', '#1B5E20', '#827717',
 ];
+
+/**
+ * Детерминированный цвет для любой кривой:
+ * - встроенные (PHID/PHIN/PHI_ND/PHIS) — из BUILTIN_COLORS
+ * - внешние — из EXTERNAL_COLORS по hash от имени (стабильно между рендерами)
+ */
+function pickColor(mnemonic) {
+  if (BUILTIN_COLORS[mnemonic]) return BUILTIN_COLORS[mnemonic];
+  let hash = 0;
+  for (let i = 0; i < mnemonic.length; i++) {
+    hash = (hash * 31 + mnemonic.charCodeAt(i)) >>> 0;
+  }
+  return EXTERNAL_COLORS[hash % EXTERNAL_COLORS.length];
+}
 
 function pairKey(x, y) {
   return `${x}__${y}`;
@@ -56,6 +66,9 @@ function Crossplot({ xName, yName, curves, depth, collapsed, onToggle }) {
   const sx = (v) => PADDING + (v / PHI_MAX) * INNER;
   const sy = (v) => SIZE - PADDING - (v / PHI_MAX) * INNER;
 
+  const xColor = pickColor(xName);
+  const yColor = pickColor(yName);
+
   return (
     <div
       style={{
@@ -80,9 +93,9 @@ function Crossplot({ xName, yName, curves, depth, collapsed, onToggle }) {
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 600 }}>
-          <span style={{ color: COLORS[xName] }}>{xName}</span>
+          <span style={{ color: xColor }}>{xName}</span>
           {' vs '}
-          <span style={{ color: COLORS[yName] }}>{yName}</span>
+          <span style={{ color: yColor }}>{yName}</span>
           <span
             className="text-xs text-muted"
             style={{ marginLeft: 6, fontWeight: 400 }}
@@ -176,8 +189,36 @@ function Crossplot({ xName, yName, curves, depth, collapsed, onToggle }) {
   );
 }
 
+/**
+ * Возвращает все уникальные пары (i < j) из списка кривых,
+ * отсортированные так, чтобы встроенные шли первыми (PHID, PHIN, PHI_ND, PHIS),
+ * а внешние — в конце, в стабильном алфавитном порядке.
+ */
+function buildAllPairs(curves) {
+  const names = Object.keys(curves || {});
+  // Сначала встроенные (в фиксированном порядке), потом внешние (алфавит)
+  const builtinOrder = ['PHID', 'PHIN', 'PHI_ND', 'PHIS'];
+  const builtinPresent = builtinOrder.filter((n) => names.includes(n));
+  const external = names
+    .filter((n) => !builtinOrder.includes(n))
+    .sort();
+  const ordered = [...builtinPresent, ...external];
+
+  const pairs = [];
+  for (let i = 0; i < ordered.length; i++) {
+    for (let j = i + 1; j < ordered.length; j++) {
+      pairs.push([ordered[i], ordered[j]]);
+    }
+  }
+  return pairs;
+}
+
 export function PorosityCrossplots({ curves, depth }) {
-  const available = PAIRS.filter(([x, y]) => curves[x] && curves[y]);
+  // Динамические пары из всех кривых (встроенные + внешние)
+  const available = useMemo(() => {
+    const allPairs = buildAllPairs(curves);
+    return allPairs.filter(([x, y]) => curves[x] && curves[y]);
+  }, [curves]);
 
   // Все свёрнуты по умолчанию, кроме первого
   const [collapsed, setCollapsed] = useState(() => {
