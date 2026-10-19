@@ -10,6 +10,7 @@ import { CurvesBar } from './components/CurvesBar';
 import { CurvesPanel } from './components/CurvesPanel';
 import { WellsSidebar } from './components/WellsSidebar';
 import { ComputationsPanel } from './components/ComputationsPanel';
+import { ResizableSidebar } from './components/ResizableSidebar';
 import WellLogViewer from './components/WellLogViewer';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -211,14 +212,24 @@ function MainPage() {
       />
 
       <div className="main-layout">
-        <WellsSidebar
-          wells={wells}
-          loading={wellsLoading}
-          activeWellId={activeWellId}
-          onSelect={handleSelectWell}
-          onDelete={handleDelete}
-          reload={reload}
-        />
+        <ResizableSidebar
+          side="left"
+          min={180}
+          max={500}
+          defaultWidth={260}
+          storageKey="petroviz.sidebar.wells"
+          title="Скважины"
+          icon="📁"
+        >
+          <WellsSidebar
+            wells={wells}
+            loading={wellsLoading}
+            activeWellId={activeWellId}
+            onSelect={handleSelectWell}
+            onDelete={handleDelete}
+            reload={reload}
+          />
+        </ResizableSidebar>
 
         <div className="main-content">
           {wellsError && (
@@ -303,17 +314,27 @@ function MainPage() {
 
         {/* --- Панель расчётов (боковая) --- */}
         {computationsOpen && (
-          <ComputationsPanel
-            well={activeWell}
-            onPreviewChange={setPreviewData}
-            onExpressChange={handleExpressChange}
-            zones={fluidZones}
-            onZonesChange={setFluidZones}
-            onClose={() => setComputationsOpen(false)}
-            savedTracks={savedTracks}
-            onShowSaved={handleShowSaved}
-            onHideSaved={handleHideSaved}
-          />
+          <ResizableSidebar
+            side="right"
+            min={280}
+            max={600}
+            defaultWidth={320}
+            storageKey="petroviz.sidebar.computations"
+            title="Расчёты"
+            icon="📊"
+          >
+            <ComputationsPanel
+              well={activeWell}
+              onPreviewChange={setPreviewData}
+              onExpressChange={handleExpressChange}
+              zones={fluidZones}
+              onZonesChange={setFluidZones}
+              onClose={() => setComputationsOpen(false)}
+              savedTracks={savedTracks}
+              onShowSaved={handleShowSaved}
+              onHideSaved={handleHideSaved}
+            />
+          </ResizableSidebar>
         )}
       </div>
     </>
