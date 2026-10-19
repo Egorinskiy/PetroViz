@@ -249,14 +249,14 @@
 }
 
 .wells-sidebar {
-  flex: 0 0 260px;
+  width: 100%;
+  height: 100%;
   background: var(--color-bg-muted);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  height: fit-content;
-  max-height: calc(100vh - 120px);
+  box-sizing: border-box;
 }
 
 .wells-sidebar-header {
@@ -720,15 +720,15 @@
    ============================================================================ */
 
 .computations-panel {
-  flex: 0 0 320px;
+  width: 100%;
+  height: 100%;
   background: var(--color-bg-subtle);
   border-left: 1px solid var(--color-border-light);
   padding: var(--space-4);
-  overflow-y: auto;
-  max-height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  box-sizing: border-box;
 }
 
 .computations-panel__header {
@@ -828,4 +828,172 @@
 .curve-mapping-row__select {
   flex: 1;
   min-width: 0;
+}
+
+/* ============================================================================
+   RESIZABLE SIDEBAR (B21)
+   ============================================================================ */
+
+.resizable-sidebar {
+  position: relative;
+  flex-shrink: 0;
+  flex-grow: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 120px);
+}
+
+.resizable-sidebar__content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* --- Drag-разделитель --- */
+.resizable-sidebar__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 20;
+  transition: background 0.15s ease;
+}
+
+.resizable-sidebar__handle--left {
+  right: -3px;
+}
+.resizable-sidebar__handle--right {
+  left: -3px;
+}
+
+.resizable-sidebar__handle:hover,
+.resizable-sidebar__handle--dragging {
+  background: var(--color-accent-blue);
+  opacity: 0.5;
+}
+
+/* --- Кнопка свернуть (развёрнутое состояние) --- */
+.resizable-sidebar__toggle--inside {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  max-width: 26px;
+  max-height: 26px;
+  flex: 0 0 auto;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  opacity: 0.75;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.resizable-sidebar__toggle--inside:hover {
+  opacity: 1;
+  background: var(--color-accent-blue);
+  border-color: var(--color-accent-blue);
+  color: #fff;
+  transform: translateY(-50%) scale(1.12);
+  box-shadow: 0 3px 12px rgba(21, 101, 192, 0.35);
+}
+
+.resizable-sidebar--left .resizable-sidebar__toggle--inside {
+  right: -13px;
+}
+
+.resizable-sidebar--right .resizable-sidebar__toggle--inside {
+  left: -13px;
+}
+
+/* --- Стрелка внутри кнопки --- */
+.resizable-sidebar__arrow-big {
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+  display: inline-block;
+}
+
+/* --- Свёрнутое состояние --- */
+.resizable-sidebar--collapsed {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.resizable-sidebar--collapsed:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-accent-blue);
+}
+
+.resizable-sidebar__toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: color 0.15s ease;
+}
+
+.resizable-sidebar__toggle:hover {
+  color: var(--color-accent-blue);
+}
+
+.resizable-sidebar__toggle:hover .resizable-sidebar__arrow-big {
+  transform: scale(1.3);
+}
+
+.resizable-sidebar__icon {
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.resizable-sidebar--collapsed .resizable-sidebar__arrow-big {
+  font-size: 14px;
+  font-weight: bold;
+  transition: transform 0.15s ease;
+}
+
+/* --- Индикатор при активном drag --- */
+.resizable-sidebar--dragging {
+  user-select: none;
+}
+
+/* --- Адаптив для узких экранов --- */
+@media (max-width: 1024px) {
+  .resizable-sidebar--left {
+    min-width: 180px !important;
+  }
+  .resizable-sidebar--right {
+    min-width: 260px !important;
+  }
 }
