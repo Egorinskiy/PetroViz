@@ -289,9 +289,14 @@ function ExpressSlider({ name, label, unit, min, max, step, value, onChange }) {
         }}
       >
         <span>{label}</span>
-        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-          {value.toFixed(decimals)} {unit}
-        </span>
+        <EditableNumber
+          value={value}
+          decimals={decimals}
+          unit={unit}
+          min={min}
+          max={max}
+          onCommit={(v) => onChange(name, v)}
+        />
       </div>
       <input
         type="range"
@@ -303,5 +308,76 @@ function ExpressSlider({ name, label, unit, min, max, step, value, onChange }) {
         style={{ width: '100%' }}
       />
     </div>
+  );
+}
+
+function EditableNumber({ value, decimals, unit, min, max, onCommit }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState('');
+  const inputRef = React.useRef(null);
+
+  const display = (isFinite(value) ? Number(value) : 0).toFixed(decimals);
+
+  React.useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const startEdit = () => {
+    setDraft(display);
+    setEditing(true);
+  };
+
+  const commit = () => {
+    const num = Number(draft);
+    if (Number.isFinite(num)) {
+      const clamped = Math.min(Math.max(num, min), max);
+      onCommit(clamped);
+    }
+    setEditing(false);
+  };
+
+  const cancel = () => setEditing(false);
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+  };
+
+  if (editing) {
+    return (
+      <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+        <input
+          ref={inputRef}
+          type="number"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+          onBlur={commit}
+          step={Math.pow(10, -decimals)}
+          style={{
+            width: 60, fontSize: 11, fontFamily: 'monospace', fontWeight: 600,
+            padding: '1px 4px', border: '1px solid #1565c0', borderRadius: 3,
+            textAlign: 'right',
+          }}
+        />
+        {unit && <span style={{ marginLeft: 2 }}>{unit}</span>}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      onDoubleClick={startEdit}
+      title="Двойной клик — редактировать"
+      style={{
+        fontFamily: 'monospace', fontWeight: 600, cursor: 'pointer',
+        userSelect: 'none', borderBottom: '1px dashed #ccc',
+      }}
+    >
+      {display} {unit}
+    </span>
   );
 }
