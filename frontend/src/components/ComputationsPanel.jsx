@@ -7,6 +7,9 @@ import { CurveMappingSelect } from './CurveMappingSelect';
 import { PorosityExpressPanel } from './PorosityExpressPanel';
 import { SourceSelector } from './SourceSelector';
 import { EyeIcon, EyeOffIcon, TrashIcon, SaveIcon } from './Icons';
+import { SaveComputationModal } from './SaveComputationModal';
+import { AllComputationsModal } from './AllComputationsModal';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export function ComputationsPanel({
   well,
@@ -56,6 +59,13 @@ export function ComputationsPanel({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
+  // Модалки B3
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [allModalOpen, setAllModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const COMPACT_LIMIT = 5;
+
   // Проброс Single-таба
   React.useEffect(() => {
     if (!onPreviewChange) return;
@@ -68,7 +78,26 @@ export function ComputationsPanel({
     onExpressChange(activeTab === 'porosity' ? expressData : null);
   }, [activeTab, expressData, onExpressChange]);
 
-  const handleSave = async () => {
+  const formatDate = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${day}.${month} ${hh}:${mm}`;
+  };
+
+   // Открыть модалку сохранения
+  const handleOpenSaveModal = () => {
+    if (!wellId || !selectedMethodKey || !previewData) return;
+    setSaveError(null);
+    setSaveModalOpen(true);
+  };
+
+  // Фактическое сохранение из модалки
+  const handleConfirmSave = async (customName) => {
     if (!wellId || !selectedMethodKey || !previewData) return;
     setSaving(true);
     setSaveError(null);
@@ -78,12 +107,44 @@ export function ComputationsPanel({
         curve_mapping: curveMapping,
         params,
         computation_refs: computationRefs,
+        output_mnemonic: customName,
       });
+      setSaveModalOpen(false);
     } catch (err) {
       const detail = err.response?.data?.detail || err.message;
       setSaveError(typeof detail === 'string' ? detail : JSON.stringify(detail));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Имя по умолчанию для модалки
+  const defaultSaveName =
+    previewData && Object.keys(previewData.curves).length > 0
+      ? Object.keys(previewData.curves)[0]
+      : '';
+
+  // Удаление через ConfirmDialog
+  const handleRequestDelete = (item) => {
+    setDeleteTarget({
+      id: item.id,
+      name: item.output_mnemonic,
+      onTrack: isSavedOnTrack(item.id),
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await removeComputation(deleteTarget.id);
+      if (deleteTarget.onTrack && onHideSaved) {
+        onHideSaved(deleteTarget.id);
+      }
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message;
+      setSaveError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -301,7 +362,7 @@ export function ComputationsPanel({
 
                 <button
                   className="btn btn--primary"
-                  onClick={handleSave}
+                  onClick={handleOpenSaveModal}
                   disabled={saving || !previewData || refsIncomplete}
                   title={
                     refsIncomplete
@@ -347,11 +408,29 @@ export function ComputationsPanel({
             </>
           )}
 
-          {/* ============ СОХРАНЁННЫЕ РАСЧЁТЫ — ВСЕГДА ВИДНЫ ============ */}
+          {/* ============ СОХРАНЁННЫЕ РАСЧЁТЫ — компактно ============ */}
           <div className="computations-panel__section" style={{ marginTop: 20 }}>
-            <div className="computations-panel__section-title">
-              Сохранённые расчёты{' '}
-              {savedItems.length > 0 && `(${savedItems.length})`}
+            <div
+              className="computations-panel__section-title"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <span>
+                Сохранённые{' '}
+                {savedItems.length > 0 && `(${savedItems.length})`}
+              </span>
+              {savedItems.length > COMPACT_LIMIT && (
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setAllModalOpen(true)}
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                >
+                  Все →
+                </button>
+              )}
             </div>
 
             {savedError && (
@@ -368,21 +447,22 @@ export function ComputationsPanel({
               </div>
             )}
 
-            {savedItems.map((item) => {
+            {savedItems.slice(0, COMPACT_LIMIT).map((item) => {
               const onTrack = isSavedOnTrack(item.id);
               return (
                 <div
                   key={item.id}
                   style={{
-                    display: 'flex',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto auto',
                     alignItems: 'center',
                     gap: 6,
-                    padding: '6px 4px',
-                    borderBottom: '1px solid #eee',
+                    padding: '5px 2px',
+                    borderBottom: '1px solid #f0f0f0',
                     fontSize: 12,
                   }}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600 }}>
                       {item.output_mnemonic}
                       {item.warnings?.length > 0 && ' ⚠️'}
@@ -390,12 +470,14 @@ export function ComputationsPanel({
                     <div
                       className="text-xs text-muted"
                       style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 10,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                       }}
                     >
-                      {item.method} · {item.num_samples} т.
+                      {item.method} · {formatDate(item.created_at)}
                     </div>
                   </div>
                   <button
@@ -411,16 +493,7 @@ export function ComputationsPanel({
                   <button
                     className="btn btn--ghost btn--sm"
                     title="Удалить"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Удалить расчёт «${item.output_mnemonic}»?`
-                        )
-                      ) {
-                        removeComputation(item.id);
-                        if (onTrack) onHideSaved(item.id);
-                      }
-                    }}
+                    onClick={() => handleRequestDelete(item)}
                     style={{ padding: '4px 6px' }}
                   >
                     <TrashIcon size={14} />
@@ -428,6 +501,22 @@ export function ComputationsPanel({
                 </div>
               );
             })}
+
+            {savedItems.length > COMPACT_LIMIT && (
+              <button
+                className="btn btn--ghost btn--sm"
+                onClick={() => setAllModalOpen(true)}
+                style={{
+                  width: '100%',
+                  fontSize: 11,
+                  padding: '4px 6px',
+                  marginTop: 6,
+                  color: 'var(--color-accent-blue)',
+                }}
+              >
+                Ещё {savedItems.length - COMPACT_LIMIT} · Показать все
+              </button>
+            )}
           </div>
         </>
       )}
@@ -440,6 +529,60 @@ export function ComputationsPanel({
           onResultChange={setExpressData}
           zones={zones}
           onZonesChange={onZonesChange}
+        />
+      )}
+
+      {/* ================== МОДАЛКИ (B3) ================== */}
+      {saveModalOpen && (
+        <SaveComputationModal
+          defaultName={defaultSaveName}
+          method={selectedMethodKey}
+          saving={saving}
+          error={saveError}
+          onCancel={() => !saving && setSaveModalOpen(false)}
+          onConfirm={handleConfirmSave}
+        />
+      )}
+
+      {allModalOpen && (
+        <AllComputationsModal
+          items={savedItems}
+          savedTracks={savedTracks}
+          onShow={onShowSaved}
+          onHide={onHideSaved}
+          onRemove={async (id) => {
+            try {
+              await removeComputation(id);
+            } catch (err) {
+              // Ошибку покажет AllComputationsModal через локальный alert-стиль
+              throw err;
+            }
+          }}
+          onClose={() => setAllModalOpen(false)}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Удалить расчёт?"
+          message={
+            <div>
+              <p style={{ margin: 0 }}>
+                Удалить расчёт <strong>«{deleteTarget.name}»</strong>?
+              </p>
+              <p
+                className="text-xs text-muted"
+                style={{ margin: '8px 0 0' }}
+              >
+                Действие необратимо — данные в parquet-файле будут потеряны.
+              </p>
+            </div>
+          }
+          confirmLabel="Удалить"
+          cancelLabel="Отмена"
+          danger
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleConfirmDelete}
         />
       )}
     </aside>

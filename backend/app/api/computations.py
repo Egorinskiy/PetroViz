@@ -114,12 +114,15 @@ async def save_computation(
 
     # Пока поддерживаем один output на метод
     output_mnemonic, series = next(iter(curves.items()))
+    # Custom name — если пользователь задал своё имя, переопределяем
+    if data.output_mnemonic:
+        output_mnemonic = data.output_mnemonic
     values = [
         None if pd.isna(v) else float(v)
         for v in series.tolist()
     ]
 
-    # Сохраняем (с source_refs — для воспроизводимости)
+    # Сохраняем
     repo = ComputationRepository(session)
     comp = await repo.save(
         well_id=well_id,
