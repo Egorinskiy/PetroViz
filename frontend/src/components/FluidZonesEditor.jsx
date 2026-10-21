@@ -1,5 +1,6 @@
 import React from 'react';
 import { FLUID_PRESETS } from '../hooks/usePorosityExpress';
+import { TrashIcon } from './Icons';
 
 /**
  * Редактор зон флюидов.
@@ -153,10 +154,10 @@ export function FluidZonesEditor({ zones, onChange, minDepth, maxDepth }) {
             <button
               onClick={() => handleRemove(z.id)}
               className="btn btn--ghost btn--sm"
-              style={{ padding: '2px 6px', fontSize: 11 }}
+              style={{ padding: '2px 6px', display: 'inline-flex', alignItems: 'center' }}
               title="Удалить зону"
             >
-              🗑
+              <TrashIcon size={12} />
             </button>
           </div>
         );

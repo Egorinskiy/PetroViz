@@ -311,12 +311,12 @@ function ShareModal({ wells, accessList, onClose, onChanged, onSuccess }) {
 
           {result ? (
             <div className="bulk-result">
-              <p>✅ Выдано: <strong>{result.granted.length}</strong></p>
+              <p>Выдано: <strong>{result.granted.length}</strong></p>
               {result.skipped.length > 0 && (
-                <p>⏭️ Пропущено: <strong>{result.skipped.length}</strong> (владелец)</p>
+                <p>Пропущено: <strong>{result.skipped.length}</strong> (владелец)</p>
               )}
               {result.failed.length > 0 && (
-                <p>❌ Ошибок: <strong>{result.failed.length}</strong></p>
+                <p>Ошибок: <strong>{result.failed.length}</strong></p>
               )}
               <p className="text-muted text-xs">Закрываем…</p>
             </div>

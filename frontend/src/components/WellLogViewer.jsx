@@ -354,7 +354,7 @@ const WellLogViewer = ({
         .attr('text-anchor', 'middle')
         .style('font-size', '11px').style('font-weight', 'bold')
         .style('fill', color)
-        .text(isSaved ? `💾 ${mnemonic}` : mnemonic);
+        .text(mnemonic);
     });
 
     // 2.5. R0 placeholder — R0 есть, но не с чем сравнивать

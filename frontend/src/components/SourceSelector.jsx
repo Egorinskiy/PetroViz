@@ -99,9 +99,9 @@ export function SourceSelector({
           className="banner banner--warning"
           style={{ padding: '6px 8px', fontSize: 11 }}
         >
-          ⚠️ Нет сохранённых расчётов категории «{requirement.category}».
+          ! Нет сохранённых расчётов категории «{requirement.category}».
           <br />
-          Посчитайте в «Одиночном» и нажмите 💾.
+          Посчитайте в «Одиночном» и сохраните.
         </div>
       ) : (
         <select

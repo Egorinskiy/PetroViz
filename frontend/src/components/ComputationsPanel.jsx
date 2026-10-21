@@ -313,7 +313,7 @@ export function ComputationsPanel({
                       className="banner banner--warning"
                       style={{ marginBottom: 6 }}
                     >
-                      ⚠️ Выберите источники:{' '}
+                      ! Выберите источники:{' '}
                       {missingRefs.map((r) => r.label).join(', ')}
                     </div>
                   )}
@@ -356,7 +356,7 @@ export function ComputationsPanel({
                           overflow: 'visible',
                         }}
                       >
-                        ⚠️ Мало данных для расчёта:{' '}
+                        ! Мало данных для расчёта:{' '}
                         {lowCoverage
                           .map((c) => `${c.mnemonic} — ${c.percent}%`)
                           .join(', ')}
@@ -483,7 +483,7 @@ export function ComputationsPanel({
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600 }}>
                       {item.output_mnemonic}
-                      {item.warnings?.length > 0 && ' ⚠️'}
+                      {item.warnings?.length > 0 && ' !'}
                     </div>
                     <div
                       className="text-xs text-muted"
