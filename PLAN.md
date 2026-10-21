@@ -252,24 +252,31 @@
     - **Гибрид** — localStorage + debounced backend sync (рекомендую)
   - **Приоритет:** ⚡ средний
 
-### 🐞 Найдено при финальном тестировании (2026-10-20)
+###### 🐞 Найдено при финальном тестировании (2026-10-20)
 
-- [ ] **B30. RBAC: запретить роли `viewer` запускать расчёты** 🔥 **высокий**
-  - Симптом: пользователь с ролью `viewer` видит кнопку «Расчёты», может делать preview и сохранять расчёты в БД.
-  - **Решение (Frontend):** скрыть/задизейблить кнопку «Расчёты» и панель для `viewer`.
-  - **Решение (Backend):** добавить зависимость `require_role("admin", "geophysicist")` на эндпоинты `POST /computations/preview`, `POST /wells/{id}/computations`, `DELETE /computations/{id}`.
+- [x] **B30. RBAC: запретить роли `viewer` запускать расчёты** ✅ *(2026-10-21)*
+  - Backend: `require_role(ADMIN, GEOPHYSICIST)` на `POST /wells/{id}/computations`
+  - Backend: soft-policy на `DELETE /computations/{id}` — admin любые, автор свои, viewer — запрещено
+  - Frontend: кнопка «Сохранить» disabled с tooltip «Требуется роль geophysicist» для viewer
+  - Frontend: trash-кнопки серые для viewer (в панели и в модалке «Все расчёты»)
+  - Коммит: `0205b5e`, фикс `8b11de0` (явная блокировка viewer в `canDeleteItem`)
   - **Приоритет:** 🔥 высокий — обязательное требование по ТЗ.
 
-- [ ] **B31. UX: рефакторинг и локализация ошибок валидации** ⚡
-  - **Проблема 1:** При отсутствии кривой для расчёта пористости ошибка выдаёт огромный список колонок (`Available columns: [...]`). Нужно укоротить до `Кривая RHOB не найдена в файле`.
-  - **Проблема 2:** При регистрации с неверным email (Pydantic 422) фронт показывает сырой JSON от FastAPI. Нужно перехватывать и выводить человеческое сообщение: `Некорректный формат email`.
-  - **Где править:** `axiosClient.js` (глобальный interceptor для 422) и `exceptions.py` (убрать длинные списки из текста).
+- [x] **B31. UX: рефакторинг и локализация ошибок валидации** ✅ *(2026-10-21)*
+  - Backend: короткие ошибки `Не найдена кривая для …`, `Кривая «X» отсутствует в файле`
+  - Backend: локализованы `ComputationRefError` (было `Missing computation reference for role 'phi'...`)
+  - Frontend: `utils/errors.js` → `extractErrorMessage()` — парсит Pydantic 422, HTTP-статусы (502/500/403/404)
+  - Применено: `RegisterPage`, `LoginPage`, `useComputePreview`, `useSavedComputations`, `usePorosityExpress`, `App.jsx`
+  - Коммит: `ddec0af`
   - **Приоритет:** ⚡ перед защитой.
 
-- [ ] **B32. Аудит иконок: избавиться от остатков эмодзи** 🎨
-  - В `WellLogViewer.jsx` при отрисовке сохранённых кривых осталась эмодзи-дискета `💾 ${mnemonic}`.
-  - Проверить и заменить на `<SaveIcon size={10} />` или текстовый маркер `[S]`, чтобы не тянуть SVG в canvas-d3.
-  - Также проверить `👁` / `🚫` / `🗑` в других местах (заменить на компоненты из `Icons.jsx`).
+- [x] **B32. Аудит иконок: избавиться от остатков эмодзи** ✅ *(2026-10-21)*
+  - Убрана 💾 в подписи сохранённых треков (`WellLogViewer.jsx`)
+  - `⚠️` → `!` в баннерах (`ComputationsPanel`, `SourceSelector`)
+  - `🗑` → `<TrashIcon size={12} />` в `FluidZonesEditor`
+  - `✅` / `❌` / `⏭️` убраны в `AdminWellsPage` (bulk-share результат)
+  - Оставлены валидные Unicode: `✕` (close), `×` (delete), `✓` (success — по решению)
+  - Коммит: `a85fb64`
   - **Приоритет:** 🎨 быстрый.
 
 - [ ] **B33. Умная группировка треков по единицам измерения (Smart Track Grouping)** ⚡ **важно**
