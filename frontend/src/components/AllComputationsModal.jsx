@@ -20,6 +20,7 @@ export function AllComputationsModal({
   onHide,
   onRemove,
   onClose,
+  canDelete = () => true,
 }) {
 const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -125,14 +126,24 @@ const [search, setSearch] = useState('');
                   >
                     {onTrack ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
                   </button>
-                  <button
-                    className="btn btn--ghost btn--sm"
-                    title="Удалить"
-                    onClick={() => handleRequestDelete(item)}
-                    style={{ padding: '4px 6px' }}
+                  <span
+                    title={
+                      canDelete(item) ? 'Удалить' : 'Нет прав на удаление'
+                    }
+                    style={{ display: 'inline-block' }}
                   >
-                    <TrashIcon size={14} />
-                  </button>
+                    <button
+                      className="btn btn--ghost btn--sm"
+                      disabled={!canDelete(item)}
+                      onClick={() => handleRequestDelete(item)}
+                      style={{
+                        padding: '4px 6px',
+                        cursor: !canDelete(item) ? 'not-allowed' : undefined,
+                      }}
+                    >
+                      <TrashIcon size={14} />
+                    </button>
+                  </span>
                 </div>
               );
             })}
