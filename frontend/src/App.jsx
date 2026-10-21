@@ -18,6 +18,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { UserMenu } from './components/UserMenu';
+import { ErrorModal } from './components/ErrorModal';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -63,6 +64,7 @@ function MainPage() {
   const [porosityExpress, setPorosityExpress] = useState(null);
   const [fluidZones, setFluidZones] = useState([]);
   const [savedTracks, setSavedTracks] = useState([]);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   const debounceRef = useRef(null);
 
@@ -189,8 +191,7 @@ function MainPage() {
       }
       await reload();
     } catch (err) {
-      // TODO (backlog): заменить alert на стилизованный ErrorModal
-      alert(extractErrorMessage(err, 'Не удалось удалить скважину'));
+      setErrorMessage(extractErrorMessage(err, 'Не удалось удалить скважину'));
     }
   };
 
@@ -214,7 +215,7 @@ function MainPage() {
         ];
       });
     } catch (err) {
-      alert(extractErrorMessage(err, 'Не удалось загрузить расчёт'));
+      setErrorMessage(extractErrorMessage(err, 'Не удалось загрузить расчёт'));
     }
   }, []);
 
@@ -414,6 +415,12 @@ function MainPage() {
           </ResizableSidebar>
         )}
       </div>
+
+      {/* B36: стилизованный диалог ошибки вместо window.alert */}
+      <ErrorModal
+        message={errorMessage}
+        onClose={() => setErrorMessage(null)}
+      />
     </>
   );
 }
