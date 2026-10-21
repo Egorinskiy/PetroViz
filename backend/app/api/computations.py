@@ -7,6 +7,10 @@ import uuid as _uuid
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..computation.pad_schemas import (
+    PadStateSaveRequest, PadStateResponse,
+)
+from ..repositories.pad_state_repository import PadStateRepository
 from ..computation.computation_schemas import (
     SaveComputationRequest,
     ComputationMeta,
@@ -284,3 +288,83 @@ async def get_external_curve(
         depth=depth,
         values=values,
     )
+
+# ============================================================================
+# B29: сохранение состояния планшета пользователя
+# ============================================================================
+
+@router.get(
+    "/wells/{well_id}/pad-state",
+    response_model=PadStateResponse,
+)
+async def get_pad_state(
+    well_id: _uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Возвращает сохранённое состояние планшета или пустое."""
+    well_repo = WellRepository(session)
+    well_result = await well_repo.get(well_id, user_id=current_user.id)
+    if well_result is None:
+        from ..exceptions import WellNotFoundError
+        raise WellNotFoundError(f"Well '{well_id}' not found")
+
+    repo = PadStateRepository(session)
+    pad_state = await repo.get(current_user.id, well_id)
+    if pad_state is None:
+        return PadStateResponse(state={}, updated_at=None)
+
+    return PadStateResponse(
+        state=pad_state.state or {},
+        updated_at=pad_state.updated_at.isoformat()
+        if pad_state.updated_at
+        else None,
+    )
+
+
+@router.put(
+    "/wells/{well_id}/pad-state",
+    response_model=PadStateResponse,
+)
+async def save_pad_state(
+    well_id: _uuid.UUID,
+    data: PadStateSaveRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Сохраняет (создаёт или обновляет) состояние планшета."""
+    well_repo = WellRepository(session)
+    well_result = await well_repo.get(well_id, user_id=current_user.id)
+    if well_result is None:
+        from ..exceptions import WellNotFoundError
+        raise WellNotFoundError(f"Well '{well_id}' not found")
+
+    repo = PadStateRepository(session)
+    pad_state = await repo.save(current_user.id, well_id, data.state)
+    return PadStateResponse(
+        state=pad_state.state or {},
+        updated_at=pad_state.updated_at.isoformat()
+        if pad_state.updated_at
+        else None,
+    )
+
+
+@router.delete(
+    "/wells/{well_id}/pad-state",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_pad_state(
+    well_id: _uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Удаляет сохранённое состояние планшета."""
+    well_repo = WellRepository(session)
+    well_result = await well_repo.get(well_id, user_id=current_user.id)
+    if well_result is None:
+        from ..exceptions import WellNotFoundError
+        raise WellNotFoundError(f"Well '{well_id}' not found")
+
+    repo = PadStateRepository(session)
+    await repo.delete(current_user.id, well_id)
+    return None

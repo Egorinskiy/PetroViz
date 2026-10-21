@@ -25,6 +25,7 @@ import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminWellsPage } from './pages/AdminWellsPage';
 import { computationsApi } from './api/computations';
 import { extractErrorMessage } from './utils/errors';
+import { usePadState } from './hooks/usePadState';
 import './App.css';
 
 function MainPage() {
@@ -65,6 +66,11 @@ function MainPage() {
   const [fluidZones, setFluidZones] = useState([]);
   const [savedTracks, setSavedTracks] = useState([]);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  // B29: состояние планшета
+  const padState = usePadState();
+  const [restoreBadge, setRestoreBadge] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(false);
 
   const debounceRef = useRef(null);
 
@@ -120,6 +126,31 @@ function MainPage() {
 
   const handleToggleCurves = () => setCurvesVisible((v) => !v);
 
+  // B29: сохранить текущий снимок планшета
+  const handleSavePad = async () => {
+    if (!activeWellId) return;
+    const snapshot = {
+      selectedCurves,
+      scale,
+      curvesVisible,
+      gridStep,
+      depthRange,
+      fluidZones,
+      savedTracks: savedTracks.map((t) => t.id),
+      savedTracksCategories: Object.fromEntries(
+        savedTracks.map((t) => [t.id, t.category || null])
+      ),
+      computationsOpen,
+    };
+    try {
+      await padState.save(activeWellId, snapshot);
+      setSaveFlash(true);
+      setTimeout(() => setSaveFlash(false), 2000);
+    } catch {
+      // Ошибка уже установлена в хуке — она не критична, тихо игнорируем
+    }
+  };
+
   // --- Выбор скважины ---
   const handleSelectWell = (well) => {
     setActiveWellId(well.well_id);
@@ -143,6 +174,34 @@ function MainPage() {
     setFluidZones([]);
     setSavedTracks([]);
     setDepthRange(null); // B6: сброс кастомного диапазона при смене скважины
+
+    // B29: пробуем восстановить состояние планшета с backend
+    (async () => {
+      try {
+        const restored = await padState.restore(well.well_id);
+        if (restored) {
+          if (Array.isArray(restored.selectedCurves) && restored.selectedCurves.length > 0) {
+            setSelectedCurves(restored.selectedCurves);
+          }
+          if (restored.scale) setScale(restored.scale);
+          if (typeof restored.curvesVisible === 'boolean') {
+            setCurvesVisible(restored.curvesVisible);
+          }
+          if (restored.gridStep !== undefined) setGridStep(restored.gridStep);
+          if (restored.depthRange !== undefined) setDepthRange(restored.depthRange);
+          if (Array.isArray(restored.fluidZones)) setFluidZones(restored.fluidZones);
+          if (Array.isArray(restored.savedTracks)) setSavedTracks(restored.savedTracks);
+          if (typeof restored.computationsOpen === 'boolean') {
+            setComputationsOpen(restored.computationsOpen);
+          }
+          // Показываем бейдж «Восстановлено» на 3 сек
+          setRestoreBadge(true);
+          setTimeout(() => setRestoreBadge(false), 3000);
+        }
+      } catch {
+        // Молча игнорируем — просто работаем с дефолтным состоянием
+      }
+    })();
   };
 
   // --- Активная скважина ---
@@ -260,6 +319,9 @@ function MainPage() {
         maxDepth={activeWell?.stop_depth ?? null}
         depthRange={depthRange}
         onDepthRangeChange={setDepthRange}
+        onSavePad={handleSavePad}
+        saveFlash={saveFlash}
+        restoreBadge={restoreBadge}
       />
 
       <div className="main-layout">

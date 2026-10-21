@@ -2,9 +2,12 @@ import React from 'react';
 import { FileUpload } from './FileUpload';
 import { ScaleSelector } from './ScaleSelector';
 import { Logo } from './Logo';
-import { ChartIcon, CurvesIcon } from './Icons';
+import { ChartIcon, CurvesIcon, SaveIcon } from './Icons';
 import { GridStepSelect } from './GridStepSelect';
 import { DepthRangePicker } from './DepthRangePicker';
+
+// Псевдоним для читаемости в Topbar
+const SavePadIcon = SaveIcon;
 
 export function Topbar({
   fileName,
@@ -27,6 +30,10 @@ export function Topbar({
   maxDepth = null,
   depthRange = null,
   onDepthRangeChange,
+  // B29
+  onSavePad,
+  saveFlash = false,
+  restoreBadge = false,
 }) {
   return (
     <div className="topbar">
@@ -71,6 +78,43 @@ export function Topbar({
               <span className="badge badge--shared">shared</span>
             )}
           </div>
+        </>
+      )}
+
+      {onSavePad && (
+        <>
+          <div className="topbar-sep" />
+          <button
+            className={`btn ${saveFlash ? 'btn--primary' : 'btn--secondary'}`}
+            onClick={onSavePad}
+            title="Сохранить текущий вид планшета"
+            style={{
+              minWidth: 150,
+              justifyContent: 'center',
+            }}
+          >
+            {saveFlash ? (
+              <>
+                <span style={{ fontSize: 14 }}>✓</span>
+                <span>Сохранено</span>
+              </>
+            ) : (
+              <>
+                <SavePadIcon size={16} />
+                <span>Сохранить</span>
+              </>
+            )}
+          </button>
+          {restoreBadge && (
+            <span
+              className="badge badge--success"
+              style={{
+                animation: 'fadeInOut 3s ease-in-out',
+              }}
+            >
+              Восстановлено
+            </span>
+          )}
         </>
       )}
 

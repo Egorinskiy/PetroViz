@@ -181,3 +181,40 @@ class Computation(Base, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<Computation {self.method} → {self.output_mnemonic}>"
+
+
+class PadState(Base, TimestampMixin):
+    """
+    Сохранённое состояние планшета пользователя для конкретной скважины.
+
+    Хранит JSON со всеми визуальными настройками (кривые, масштаб, зоны флюидов,
+    показанные сохранённые расчёты и т.д.). Один pad_state на пару (user, well).
+    """
+    __tablename__ = "pad_states"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    well_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("wells.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    state: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    user: Mapped["User"] = relationship()
+    well: Mapped["Well"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "well_id", name="uq_user_well_pad_state"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PadState user={self.user_id} well={self.well_id}>"
