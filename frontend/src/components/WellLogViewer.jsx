@@ -234,7 +234,7 @@ const WellLogViewer = ({
     // ====================================================================
     // ГЕОМЕТРИЯ: Массив ширин треков
     // ====================================================================
-    const trackGap = 25;
+    const trackGap = 6;
     const trackWidths = [];
 
     // 1. Основные треки из LAS (150)
@@ -355,15 +355,7 @@ const WellLogViewer = ({
       const trackW = trackWidths[idx];
       const clipId = `url(#clip-track-${idx})`;
 
-      g.append('rect')
-        .attr('x', xOffset)
-        .attr('y', 0)
-        .attr('width', trackW)
-        .attr('height', innerHeight)
-        .attr('fill', 'none')
-        .attr('stroke', '#aaa');
-
-      if (track.type === 'composite_dn') {
+    if (track.type === 'composite_dn') {
         drawCompositeDN(g, track, xOffset, trackW, innerHeight, y, wellData, clipId);
       } else if (track.type === 'composite_res') {
         drawCompositeRes(
@@ -439,10 +431,26 @@ const WellLogViewer = ({
       drawNtgTrack(g, ntgData, xOffsets[idx], trackWidths[idx], innerHeight, y, `url(#clip-track-${idx})`);
     }
 
-    // 5. PERM
+     // 5. PERM
     if (permData) {
       const idx = currentIdx++;
       drawPermTrack(g, permData, xOffsets[idx], trackWidths[idx], innerHeight, y, `url(#clip-track-${idx})`);
+    }
+
+    // ====================================================================
+    // B40: единые рамки треков — рисуем ПОСЛЕДНИМИ, поверх всех gridlines
+    // и кривых. Это гарантирует одинаковую толщину и цвет.
+    // ====================================================================
+    for (let idx = 0; idx < totalTracks; idx++) {
+      g.append('rect')
+        .attr('x', xOffsets[idx])
+        .attr('y', 0)
+        .attr('width', trackWidths[idx])
+        .attr('height', innerHeight)
+        .attr('fill', 'none')
+        .attr('stroke', '#000')
+        .attr('stroke-width', 1)
+        .attr('shape-rendering', 'crispEdges');
     }
   }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, fluidZones, savedTracks, gridStep, topDepth, bottomDepth]);
 
@@ -476,11 +484,6 @@ const WellLogViewer = ({
 // ============================================================================
 
 function drawSwSwTrack(g, swData, swiData, xOffset, trackWidth, innerHeight, y, clipId) {
-  g.append('rect')
-    .attr('x', xOffset).attr('y', 0)
-    .attr('width', trackWidth).attr('height', innerHeight)
-    .attr('fill', 'none').attr('stroke', '#333');
-
   const x = d3.scaleLinear()
     .domain([1, 0])
     .range([xOffset, xOffset + trackWidth]);
@@ -563,11 +566,6 @@ function drawSwSwTrack(g, swData, swiData, xOffset, trackWidth, innerHeight, y, 
 }
 
 function drawNtgTrack(g, ntgData, xOffset, trackWidth, innerHeight, y, clipId) {
-  g.append('rect')
-    .attr('x', xOffset).attr('y', 0)
-    .attr('width', trackWidth).attr('height', innerHeight)
-    .attr('fill', 'none').attr('stroke', '#F9A825'); // Жёлто-оранжевая рамка
-
   const x = d3.scaleLinear()
     .domain([0, 1])
     .range([xOffset, xOffset + trackWidth]);
@@ -617,11 +615,6 @@ function drawNtgTrack(g, ntgData, xOffset, trackWidth, innerHeight, y, clipId) {
 }
 
 function drawPermTrack(g, permData, xOffset, trackWidth, innerHeight, y, clipId) {
-  g.append('rect')
-    .attr('x', xOffset).attr('y', 0)
-    .attr('width', trackWidth).attr('height', innerHeight)
-    .attr('fill', 'none').attr('stroke', '#8D6E63');
-
   const x = d3.scaleLog()
     .domain([0.01, 10000])
     .range([xOffset, xOffset + trackWidth]);
@@ -746,13 +739,6 @@ const GROUP_COLORS = {
  */
 function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, options) {
   const { type, label } = options;
-
-  // Рамка трека
-  g.append('rect')
-    .attr('x', xOffset).attr('y', 0)
-    .attr('width', trackWidth).attr('height', innerHeight)
-    .attr('fill', 'none')
-    .attr('stroke', '#aaa');
 
   // Определяем ось X по типу группы
   let x;
