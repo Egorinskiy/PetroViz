@@ -101,14 +101,19 @@ const WellLogViewer = ({
     const tracks = buildTracks(curvesToPlot);
 
     // ====================================================================
-    // Собираем все preview-кривые (live + saved) в словарь по mnemonic.
-    // B35: мапим расчётные кривые на прореженный wellData.depth —
-    // чтобы детализация была такой же, как у исходных кривых.
+    // B33: разделяем кривые на специальные (dict) и обычные (array).
+    // Специальные (R0, SW, SWI, NTG, PERM) — одна на mnemonic.
+    // Обычные (VSH*, PHI*, GR, RHOB...) — может быть несколько с одним
+    // mnemonic (например, 3 сохранённых VSH + 1 live VSH).
     // ====================================================================
-    const allCurves = {};
+    const SPECIAL_MNEMONICS = new Set(['R0', 'SW', 'SWI', 'NTG', 'PERM']);
+    const specialCurves = {};
+    const regularItems = []; // массив пар [mnemonic, item]
+
+    // 1. Live preview
     if (previewData?.curves) {
       for (const [mnemonic, curve] of Object.entries(previewData.curves)) {
-        allCurves[mnemonic] = {
+        const item = {
           mnemonic,
           values: _mapToWellDepths(
             previewData.depth,
@@ -117,29 +122,43 @@ const WellLogViewer = ({
           ),
           depth: wellData.depth,
           isSaved: false,
+          isExpress: false,
           key: `live-${mnemonic}`,
         };
+        if (SPECIAL_MNEMONICS.has(mnemonic)) {
+          if (!specialCurves[mnemonic]) specialCurves[mnemonic] = item;
+        } else {
+          regularItems.push([mnemonic, item]);
+        }
       }
     }
+
+    // 2. Сохранённые расчёты — БЕЗ дедупликации по mnemonic
     for (const t of (savedTracks || [])) {
       const mnemonic = t.label || t.mnemonic;
-      if (!allCurves[mnemonic]) {
-        allCurves[mnemonic] = {
-          mnemonic,
-          values: _mapToWellDepths(t.depth, t.values, wellData.depth),
-          depth: wellData.depth,
-          isSaved: true,
-          key: `saved-${t.id}`,
-        };
+      const item = {
+        mnemonic,
+        values: _mapToWellDepths(t.depth, t.values, wellData.depth),
+        depth: wellData.depth,
+        isSaved: true,
+        isExpress: false,
+        key: `saved-${t.id}`,
+      };
+      if (SPECIAL_MNEMONICS.has(mnemonic)) {
+        if (!specialCurves[mnemonic]) specialCurves[mnemonic] = item;
+      } else {
+        regularItems.push([mnemonic, item]);
       }
     }
 
     // Специальные кривые
-    const r0Data = allCurves['R0'] || null;
-    const swData = allCurves['SW'] || null;
-    const swiData = allCurves['SWI'] || null;
-    const ntgData = allCurves['NTG'] || null;
-    const permData = allCurves['PERM'] || null;
+    const r0Data = specialCurves['R0'] || null;
+    const swData = specialCurves['SW'] || null;
+    const swiData = specialCurves['SWI'] || null;
+    const ntgData = specialCurves['NTG'] || null;
+    const permData = specialCurves['PERM'] || null;
+
+    // Производные флаги (были в старом блоке, потерялись в патче)
     const hasSwSwTrack = !!(swData || swiData);
 
     // Определяем, есть ли composite_res (для R0 overlay)
@@ -151,30 +170,66 @@ const WellLogViewer = ({
     const hasRtInPlot = _hasRtCurve(curvesToPlot);
     const showR0Placeholder = !!(r0Data && !r0AsOverlay && !hasRtInPlot);
 
-    // Обычные preview-кривые (всё кроме специальных)
-    const regularCurves = Object.entries(allCurves).filter(([m]) => {
-      if (m === 'SW' || m === 'SWI') return false;
-      if (m === 'NTG' || m === 'PERM') return false;
-      if (m === 'R0' && r0AsOverlay) return false;
-      if (m === 'R0' && showR0Placeholder) return false; // вместо трека — заглушка
-      return true;
-    });
+  // ====================================================================
+    // B33: группировка кривых по категориям
+    // ====================================================================
+    // Специальные (отдельные треки — не трогаем):
+    //   SW, SWI → saturationGroup (свой трек с заливками)
+    //   NTG → ntgGroup
+    //   PERM → permGroup
+    //   R0 (overlay) → внутри composite_res
+    //   R0 (placeholder) → заглушка
+    //
+    // Обычные — группируем:
+    //   VSH* → vshaleGroup
+    //   PHI* + express → porosityGroup
+    //   всё остальное → otherGroup
 
-    // Express-трек (B35: мапим на wellData.depth)
-    const expressCurves = porosityExpress?.curves && porosityExpress?.depth
-      ? Object.entries(porosityExpress.curves).map(([mnemonic, curve]) => [
+    // B33: группировка обычных кривых по префиксу mnemonic
+    const vshaleGroup = [];
+    const porosityGroup = [];
+    const otherGroup = [];
+
+    for (const [mnemonic, item] of regularItems) {
+      const upper = mnemonic.toUpperCase();
+      if (upper.startsWith('VSH')) {
+        vshaleGroup.push([mnemonic, item]);
+      } else if (upper.startsWith('PHI')) {
+        porosityGroup.push([mnemonic, item]);
+      } else {
+        otherGroup.push([mnemonic, item]);
+      }
+    }
+
+    // B33: express-пористость добавляем в porosityGroup.
+    // B35: мапим на wellData.depth. Не дублируем live preview, но
+    // сохранённые PHI остаются рядом (live / saved / express — разные слои).
+    if (porosityExpress?.curves && porosityExpress?.depth) {
+      for (const [mnemonic, curve] of Object.entries(porosityExpress.curves)) {
+        // Пропускаем, если live preview уже дал эту же кривую
+        const existsInLive = regularItems.some(
+          ([m, it]) => m === mnemonic && !it.isSaved && !it.isExpress
+        );
+        if (existsInLive) continue;
+
+        porosityGroup.push([
           mnemonic,
           {
-            ...curve,
+            mnemonic,
             values: _mapToWellDepths(
               porosityExpress.depth,
               curve.values,
               wellData.depth
             ),
+            depth: wellData.depth,
+            isSaved: false,
+            isExpress: true,
+            isExternal: !!curve.isExternal,
+            key: `express-${mnemonic}`,
           },
-        ])
-      : [];
-    const hasExpress = expressCurves.length > 0;
+        ]);
+      }
+    }
 
     // ====================================================================
     // ГЕОМЕТРИЯ: Массив ширин треков
@@ -182,20 +237,22 @@ const WellLogViewer = ({
     const trackGap = 25;
     const trackWidths = [];
 
-    // 1. Основные треки (стандарт 150)
+    // 1. Основные треки из LAS (150)
     tracks.forEach(() => trackWidths.push(150));
-    // 2. Обычные preview (150)
-    regularCurves.forEach(() => trackWidths.push(150));
-    // 2.5. R0 placeholder (150) — если R0 есть, но нет RT на планшете
+    // 2. Vshale группа (150)
+    if (vshaleGroup.length > 0) trackWidths.push(150);
+    // 3. Porosity группа (150) — включает express
+    if (porosityGroup.length > 0) trackWidths.push(150);
+    // 4. Other группа (150) — обычно пусто
+    if (otherGroup.length > 0) trackWidths.push(150);
+    // 5. R0 placeholder (150)
     if (showR0Placeholder) trackWidths.push(150);
-    // 3. SW/SWI (150)
+    // 6. SW/SWI (150)
     if (hasSwSwTrack) trackWidths.push(150);
-    // 4. NTG (40 — узкий)
+    // 7. NTG (40 — узкий)
     if (ntgData) trackWidths.push(40);
-    // 5. PERM (150)
+    // 8. PERM (150)
     if (permData) trackWidths.push(150);
-    // 6. EXPRESS (150)
-    if (hasExpress) trackWidths.push(150);
 
     const totalTracks = trackWidths.length;
     const xOffsets = [];
@@ -319,88 +376,50 @@ const WellLogViewer = ({
       }
     });
 
-    // 2. Обычные preview-треки
-    regularCurves.forEach(([mnemonic, item]) => {
+    // 2. Vshale группа
+    if (vshaleGroup.length > 0) {
       const idx = currentIdx++;
-      const { values, depth: trackDepth, isSaved } = item;
-      const xOffset = xOffsets[idx];
-      const trackW = trackWidths[idx];
-      const clipId = `url(#clip-track-${idx})`;
+      drawCurveGroup(
+        g,
+        vshaleGroup,
+        xOffsets[idx],
+        trackWidths[idx],
+        innerHeight,
+        y,
+        `url(#clip-track-${idx})`,
+        { type: 'vshale', label: 'VSHALE' }
+      );
+    }
 
-      g.append('rect')
-        .attr('x', xOffset).attr('y', 0)
-        .attr('width', trackW).attr('height', innerHeight)
-        .attr('fill', 'none')
-        .attr('stroke', isSaved ? '#1565c0' : '#aaa');
+    // 3. Porosity группа (включая express)
+    if (porosityGroup.length > 0) {
+      const idx = currentIdx++;
+      drawCurveGroup(
+        g,
+        porosityGroup,
+        xOffsets[idx],
+        trackWidths[idx],
+        innerHeight,
+        y,
+        `url(#clip-track-${idx})`,
+        { type: 'porosity', label: 'ПОРИСТОСТЬ' }
+      );
+    }
 
-      const validValues = (values || []).filter((v) => v != null && isFinite(v));
-      if (validValues.length === 0) {
-        g.append('text')
-          .attr('x', xOffset + trackW / 2)
-          .attr('y', innerHeight / 2)
-          .attr('text-anchor', 'middle')
-          .style('fill', '#999').style('font-size', '12px')
-          .text(`${mnemonic}: нет данных`);
-        return;
-      }
-
-      const upper = mnemonic.toUpperCase();
-      const isVshale = upper.startsWith('VSH');
-      const isSaturation = upper.startsWith('SW');
-      const isPorosity = upper.startsWith('PHI');
-
-      let color;
-      if (isSaved) color = '#1565c0';
-      else if (isVshale) color = '#388e3c';
-      else if (upper === 'PHI_ND') color = '#00897B';
-      else if (upper.startsWith('PHID')) color = '#E65100';
-      else if (upper.startsWith('PHIN')) color = '#0277BD';
-      else if (upper.startsWith('PHIS')) color = '#6A1B9A';
-      else if (isPorosity) color = '#E65100';
-      else if (isSaturation) color = '#1565c0';
-      else color = '#C62828';
-
-      let x;
-      if (isVshale || isSaturation) {
-        x = d3.scaleLinear().domain([0, 1]).range([xOffset, xOffset + trackW]);
-      } else if (isPorosity) {
-        x = d3.scaleLinear().domain([0, 0.6]).range([xOffset, xOffset + trackW]);
-      } else {
-        const extent = d3.extent(validValues);
-        x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackW]).nice();
-      }
-
-      g.append('g')
-        .attr('transform', `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
-        .selectAll('text').style('font-size', '9px');
-
-      g.append('g')
-        .attr('transform', `translate(0,0)`)
-        .call(d3.axisTop(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
-        .selectAll('line').style('stroke', '#e0e0e0');
-
-      const line = d3.line()
-        .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
-        .x((d) => x(d))
-        .y((_, i) => y(trackDepth[i]));
-
-      g.append('path')
-        .datum(values)
-        .attr('fill', 'none')
-        .attr('stroke', color)
-        .attr('stroke-width', 1.5)
-        .attr('d', line)
-        .attr('clip-path', clipId);
-
-      g.append('text')
-        .attr('x', xOffset + trackW / 2)
-        .attr('y', innerHeight + 45)
-        .attr('text-anchor', 'middle')
-        .style('font-size', '11px').style('font-weight', 'bold')
-        .style('fill', color)
-        .text(mnemonic);
-    });
+    // 4. Other группа
+    if (otherGroup.length > 0) {
+      const idx = currentIdx++;
+      drawCurveGroup(
+        g,
+        otherGroup,
+        xOffsets[idx],
+        trackWidths[idx],
+        innerHeight,
+        y,
+        `url(#clip-track-${idx})`,
+        { type: 'other', label: 'ПРОЧЕЕ' }
+      );
+    }
 
     // 2.5. R0 placeholder — R0 есть, но не с чем сравнивать
     if (showR0Placeholder) {
@@ -424,115 +443,6 @@ const WellLogViewer = ({
     if (permData) {
       const idx = currentIdx++;
       drawPermTrack(g, permData, xOffsets[idx], trackWidths[idx], innerHeight, y, `url(#clip-track-${idx})`);
-    }
-
-    // 6. EXPRESS
-    if (hasExpress) {
-      const idx = currentIdx++;
-      const xOffset = xOffsets[idx];
-      const trackW = trackWidths[idx];
-      const clipId = `url(#clip-track-${idx})`;
-      const trackDepth = wellData.depth;
-
-      g.append('rect')
-        .attr('x', xOffset).attr('y', 0)
-        .attr('width', trackW).attr('height', innerHeight)
-        .attr('fill', 'none').attr('stroke', '#00897B');
-
-      const x = d3.scaleLinear()
-        .domain([0, 0.6])
-        .range([xOffset, xOffset + trackW]);
-
-      g.append('g')
-        .attr('transform', `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(x).ticks(4).tickFormat(d3.format('.1f')))
-        .selectAll('text').style('font-size', '9px');
-
-      // Мелкая сетка 0.1, 0.3, 0.5
-      g.append('g')
-        .attr('transform', `translate(0,0)`)
-        .call(d3.axisTop(x).tickValues([0.1, 0.3, 0.5]).tickSize(-innerHeight).tickFormat(''))
-        .selectAll('line')
-        .style('stroke', '#c8c8c8')
-        .style('stroke-dasharray', '2,4')
-        .style('stroke-width', '0.7');
-
-      // Основная 0.0, 0.2, 0.4, 0.6
-      g.append('g')
-        .attr('transform', `translate(0,0)`)
-        .call(d3.axisTop(x).tickValues([0, 0.2, 0.4, 0.6]).tickSize(-innerHeight).tickFormat(''))
-        .selectAll('line')
-        .style('stroke', '#a0a0a0')
-        .style('stroke-width', '0.9');
-
-      // Внешние цвета — та же палитра, что в usePorosityExpress.js
-      const EXTERNAL_COLORS = [
-        '#212121', '#4E342E', '#880E4F', '#37474F', '#1B5E20', '#827717',
-      ];
-      const externalIndex = {};
-
-      expressCurves.forEach(([mnemonic, curve]) => {
-        const values = curve.values || [];
-        const isExternal = !!curve.isExternal;
-        let color;
-        if (POROSITY_COLORS[mnemonic]) {
-          color = POROSITY_COLORS[mnemonic];
-        } else {
-          // Внешняя — цвет из резерва, индекс по порядку
-          const idx = externalIndex[mnemonic] ?? Object.keys(externalIndex).length;
-          externalIndex[mnemonic] = idx;
-          color = EXTERNAL_COLORS[idx % EXTERNAL_COLORS.length];
-        }
-
-        const line = d3.line()
-          .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
-          .x((d) => x(d))
-          .y((_, i) => y(trackDepth[i]));
-
-        g.append('path')
-          .datum(values)
-          .attr('fill', 'none')
-          .attr('stroke', color)
-          .attr('stroke-width', isExternal ? 1.8 : 1.5)
-          .attr('d', line)
-          .attr('clip-path', clipId);
-      });
-
-      const legendX = xOffset;
-      expressCurves.forEach(([mnemonic], i) => {
-        const isExternal = !!expressCurves[i][1].isExternal;
-        let color;
-        if (POROSITY_COLORS[mnemonic]) {
-          color = POROSITY_COLORS[mnemonic];
-        } else {
-          const idx = expressCurves
-            .slice(0, i + 1)
-            .filter(([m]) => !POROSITY_COLORS[m])
-            .map(([m]) => m)
-            .indexOf(mnemonic);
-          color = EXTERNAL_COLORS[idx % EXTERNAL_COLORS.length];
-        }
-
-        const label = isExternal ? `${mnemonic}*` : mnemonic;
-        g.append('text')
-          .attr('x', legendX + i * 42)
-          .attr('y', innerHeight + 45)
-          .attr('text-anchor', 'start')
-          .style('font-size', '10px')
-          .style('font-weight', 'bold')
-          .style('fill', color)
-          .text(label)
-          .append('title')
-          .text(isExternal ? `${mnemonic} (внешняя)` : mnemonic);
-      });
-
-      g.append('text')
-        .attr('x', xOffset + trackW / 2)
-        .attr('y', innerHeight + 62)
-        .attr('text-anchor', 'middle')
-        .style('font-size', '10px')
-        .style('fill', '#666')
-        .text('Пористость (v/v)');
     }
   }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, fluidZones, savedTracks, gridStep, topDepth, bottomDepth]);
 
@@ -793,6 +703,183 @@ function drawR0Placeholder(g, xOffset, trackWidth, innerHeight) {
     .style('font-weight', 'bold')
     .style('fill', '#999')
     .text('R0');
+}
+
+// ============================================================================
+// B33: группировка кривых на одном треке
+// ============================================================================
+
+/**
+ * Цвета для групп.
+ */
+const GROUP_COLORS = {
+  vshale: ['#1B5E20', '#00897B', '#4CAF50', '#F9A825', '#0D47A1', '#AD1457'],
+  porosity: {
+    PHID: '#E65100',
+    PHIN: '#0277BD',
+    PHI_ND: '#00897B',
+    PHIS: '#6A1B9A',
+  },
+  porosityFallback: ['#E65100', '#0277BD', '#00897B', '#6A1B9A', '#BF360C'],
+  external: ['#212121', '#4E342E', '#880E4F', '#37474F', '#1B5E20', '#827717'],
+  other: ['#C62828', '#AD1457', '#6A1B9A', '#1565C0', '#00838F'],
+};
+
+/**
+ * Отрисовывает группу кривых на одном треке.
+ *
+ * @param {d3.Selection} g
+ * @param {Array<[string, {values, depth, isSaved, isExpress, isExternal}]>} group
+ * @param {number} xOffset
+ * @param {number} trackWidth
+ * @param {number} innerHeight
+ * @param {d3.ScaleLinear} y
+ * @param {string} clipId
+ * @param {{type: string, label: string}} options
+ */
+function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, options) {
+  const { type, label } = options;
+
+  // Рамка трека
+  g.append('rect')
+    .attr('x', xOffset).attr('y', 0)
+    .attr('width', trackWidth).attr('height', innerHeight)
+    .attr('fill', 'none')
+    .attr('stroke', '#aaa');
+
+  // Определяем ось X по типу группы
+  let x;
+  if (type === 'vshale') {
+    x = d3.scaleLinear().domain([0, 1]).range([xOffset, xOffset + trackWidth]);
+  } else if (type === 'porosity') {
+    x = d3.scaleLinear().domain([0, 0.6]).range([xOffset, xOffset + trackWidth]);
+  } else {
+    // other — по фактическому диапазону
+    const allVals = group.flatMap(([, item]) =>
+      (item.values || []).filter((v) => v != null && isFinite(v))
+    );
+    if (allVals.length === 0) return;
+    const extent = d3.extent(allVals);
+    x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
+  }
+
+  // Ось X снизу
+  g.append('g')
+    .attr('transform', `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
+    .selectAll('text').style('font-size', '9px');
+
+  // Сетка
+  g.append('g')
+    .attr('transform', `translate(0,0)`)
+    .call(d3.axisTop(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
+    .selectAll('line').style('stroke', '#e0e0e0');
+
+  // Индекс для раскраски
+  let colorIndex = 0;
+  const externalIndex = {};
+
+  // Рисуем каждую кривую
+  group.forEach(([mnemonic, item]) => {
+    const { values, depth: trackDepth, isSaved, isExternal, isExpress } = item;
+
+    // Цвет
+    let color;
+    if (type === 'vshale') {
+      color = GROUP_COLORS.vshale[colorIndex % GROUP_COLORS.vshale.length];
+      colorIndex++;
+    } else if (type === 'porosity') {
+      if (GROUP_COLORS.porosity[mnemonic]) {
+        color = GROUP_COLORS.porosity[mnemonic];
+      } else if (isExternal) {
+        const eIdx = externalIndex[mnemonic] ?? Object.keys(externalIndex).length;
+        externalIndex[mnemonic] = eIdx;
+        color = GROUP_COLORS.external[eIdx % GROUP_COLORS.external.length];
+      } else {
+        color = GROUP_COLORS.porosityFallback[colorIndex % GROUP_COLORS.porosityFallback.length];
+        colorIndex++;
+      }
+    } else {
+      color = GROUP_COLORS.other[colorIndex % GROUP_COLORS.other.length];
+      colorIndex++;
+    }
+
+    // Стиль линии: live — толстый сплошной, saved — тонкий пунктирный
+    const dashArray = isSaved ? '4,2' : 'none';
+    const strokeWidth = isExternal
+      ? 1.8
+      : isSaved
+      ? 1.2  // saved — тонкий, «фоновый»
+      : 2.0; // live — толстый, доминирует
+
+    const line = d3.line()
+      .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
+      .x((d) => x(d))
+      .y((_, i) => y(trackDepth[i]));
+
+    g.append('path')
+      .datum(values)
+      .attr('fill', 'none')
+      .attr('stroke', color)
+      .attr('stroke-width', strokeWidth)
+      .attr('stroke-dasharray', dashArray)
+      .attr('d', line)
+      .attr('clip-path', clipId);
+  });
+
+  // Легенда под треком — все мнемоники в ряд
+  const legendY = innerHeight + 45;
+  const itemWidth = Math.min(50, trackWidth / Math.max(group.length, 1));
+  const startX = xOffset + (trackWidth - itemWidth * group.length) / 2;
+
+  let legendColorIndex = 0;
+  const legendExternalIndex = {};
+
+  group.forEach(([mnemonic, item], i) => {
+    let color;
+    if (type === 'vshale') {
+      color = GROUP_COLORS.vshale[legendColorIndex % GROUP_COLORS.vshale.length];
+      legendColorIndex++;
+    } else if (type === 'porosity') {
+      if (GROUP_COLORS.porosity[mnemonic]) {
+        color = GROUP_COLORS.porosity[mnemonic];
+      } else if (item.isExternal) {
+        const eIdx = legendExternalIndex[mnemonic] ?? Object.keys(legendExternalIndex).length;
+        legendExternalIndex[mnemonic] = eIdx;
+        color = GROUP_COLORS.external[eIdx % GROUP_COLORS.external.length];
+      } else {
+        color = GROUP_COLORS.porosityFallback[legendColorIndex % GROUP_COLORS.porosityFallback.length];
+        legendColorIndex++;
+      }
+    } else {
+      color = GROUP_COLORS.other[legendColorIndex % GROUP_COLORS.other.length];
+      legendColorIndex++;
+    }
+
+    const short = mnemonic.length > 7 ? mnemonic.slice(0, 6) + '…' : mnemonic;
+    g.append('text')
+      .attr('x', startX + i * itemWidth + itemWidth / 2)
+      .attr('y', legendY)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '9px')
+      .style('font-weight', 'bold')
+      .style('fill', color)
+      .style('cursor', 'help')
+      .text(short)
+      .append('title')
+      .text(
+        `${mnemonic}${item.isSaved ? ' (сохранённый)' : ''}${item.isExternal ? ' (внешняя)' : ''}`
+      );
+  });
+
+  // Заголовок группы
+  g.append('text')
+    .attr('x', xOffset + trackWidth / 2)
+    .attr('y', innerHeight + 62)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '10px')
+    .style('fill', '#666')
+    .text(label);
 }
 
 export default WellLogViewer;

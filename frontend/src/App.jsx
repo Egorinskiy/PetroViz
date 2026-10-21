@@ -195,7 +195,7 @@ function MainPage() {
   };
 
   // --- Загрузка сохранённого расчёта на трек ---
-  const handleShowSaved = useCallback(async (compId) => {
+  const handleShowSaved = useCallback(async (compId, category) => {
     try {
       const data = await computationsApi.getData(compId);
       setSavedTracks((prev) => {
@@ -209,6 +209,7 @@ function MainPage() {
             depth: data.depth,
             values: data.values,
             method: data.method,
+            category, // B33: категория для группировки треков
           },
         ];
       });
@@ -223,7 +224,8 @@ function MainPage() {
 
   // --- Приём данных из экспресс-вкладки ---
   const handleExpressChange = useCallback((data) => {
-    setPorosityExpress(data);
+    // B33: все express-кривые — porosity
+    setPorosityExpress(data ? { ...data, category: 'porosity' } : null);
   }, []);
 
   const toggleCurve = (curve) => {

@@ -145,6 +145,13 @@ export function ComputationsPanel({
     });
   };
 
+  // B33: обёртка над onShowSaved — находит category через methods
+  const handleShowSaved = (compId) => {
+    const item = savedItems.find((i) => i.id === compId);
+    const method = methods.find((m) => m.key === item?.method);
+    if (onShowSaved) onShowSaved(compId, method?.category);
+  };
+
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -496,7 +503,7 @@ export function ComputationsPanel({
                     className="btn btn--ghost btn--sm"
                     title={onTrack ? 'Скрыть с трека' : 'Показать на треке'}
                     onClick={() =>
-                      onTrack ? onHideSaved(item.id) : onShowSaved(item.id)
+                      onTrack ? onHideSaved(item.id) : handleShowSaved(item.id)
                     }
                     style={{ padding: '4px 6px' }}
                   >
@@ -574,7 +581,7 @@ export function ComputationsPanel({
         <AllComputationsModal
           items={savedItems}
           savedTracks={savedTracks}
-          onShow={onShowSaved}
+          onShow={handleShowSaved}
           onHide={onHideSaved}
           onRemove={async (id) => {
             try {

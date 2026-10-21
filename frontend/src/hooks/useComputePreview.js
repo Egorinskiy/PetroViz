@@ -99,7 +99,11 @@ export function useComputePreview({ wellId, enabled }) {
         params,
         computationRefs
       );
-      setPreviewData(data);
+      // B33: добавляем category метода в previewData — для группировки треков
+      const methodCategory = methods.find(
+        (m) => m.key === selectedMethodKey
+      )?.category;
+      setPreviewData({ ...data, category: methodCategory });
       setWarnings(data.warnings || []);
     } catch (err) {
       setPreviewError(extractErrorMessage(err, 'Не удалось выполнить расчёт'));
