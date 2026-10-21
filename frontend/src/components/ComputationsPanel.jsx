@@ -11,6 +11,7 @@ import { EyeIcon, EyeOffIcon, TrashIcon, SaveIcon } from './Icons';
 import { SaveComputationModal } from './SaveComputationModal';
 import { AllComputationsModal } from './AllComputationsModal';
 import { ConfirmDialog } from './ConfirmDialog';
+import { CollapsibleSection } from './CollapsibleSection';
 
 export function ComputationsPanel({
   well,
@@ -237,10 +238,10 @@ export function ComputationsPanel({
               {/* Источники данных (сохранённые расчёты — refs) */}
               {selectedMethod.requires_computations &&
                 Object.keys(selectedMethod.requires_computations).length > 0 && (
-                  <div className="computations-panel__section">
-                    <div className="computations-panel__section-title">
-                      Источники данных
-                    </div>
+                  <CollapsibleSection
+                    title="Источники данных"
+                    storageKey="sources"
+                  >
                     {Object.entries(selectedMethod.requires_computations).map(
                       ([role, req]) => (
                         <SourceSelector
@@ -254,15 +255,15 @@ export function ComputationsPanel({
                         />
                       )
                     )}
-                  </div>
+                  </CollapsibleSection>
                 )}
 
               {/* Входные кривые из LAS */}
               {selectedMethod.requires.length > 0 && (
-                <div className="computations-panel__section">
-                  <div className="computations-panel__section-title">
-                    Входные кривые
-                  </div>
+                <CollapsibleSection
+                  title="Входные кривые"
+                  storageKey="curves"
+                >
                   {selectedMethod.requires.map((role) => (
                     <CurveMappingSelect
                       key={role}
@@ -272,15 +273,15 @@ export function ComputationsPanel({
                       onChange={setMapping}
                     />
                   ))}
-                </div>
+                </CollapsibleSection>
               )}
 
               {/* Параметры метода */}
               {Object.keys(selectedMethod.params).length > 0 && (
-                <div className="computations-panel__section">
-                  <div className="computations-panel__section-title">
-                    Параметры метода
-                  </div>
+                <CollapsibleSection
+                  title="Параметры метода"
+                  storageKey="params"
+                >
                   {Object.entries(selectedMethod.params).map(([name, meta]) => (
                     <ParamSlider
                       key={name}
@@ -290,7 +291,7 @@ export function ComputationsPanel({
                       onChange={setParam}
                     />
                   ))}
-                </div>
+                </CollapsibleSection>
               )}
 
               {/* Статус + Кнопка Сохранить */}
@@ -427,20 +428,12 @@ export function ComputationsPanel({
           )}
 
           {/* ============ СОХРАНЁННЫЕ РАСЧЁТЫ — компактно ============ */}
-          <div className="computations-panel__section" style={{ marginTop: 20 }}>
-            <div
-              className="computations-panel__section-title"
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <span>
-                Сохранённые{' '}
-                {savedItems.length > 0 && `(${savedItems.length})`}
-              </span>
-              {savedItems.length > COMPACT_LIMIT && (
+          <CollapsibleSection
+            title={`Сохранённые${savedItems.length > 0 ? ` (${savedItems.length})` : ''}`}
+            storageKey="saved"
+            style={{ marginTop: 20 }}
+            headerRight={
+              savedItems.length > COMPACT_LIMIT ? (
                 <button
                   className="btn btn--ghost btn--sm"
                   onClick={() => setAllModalOpen(true)}
@@ -448,8 +441,9 @@ export function ComputationsPanel({
                 >
                   Все →
                 </button>
-              )}
-            </div>
+              ) : null
+            }
+          >
 
             {savedError && (
               <div className="banner banner--error">{savedError}</div>
@@ -549,7 +543,7 @@ export function ComputationsPanel({
                 Ещё {savedItems.length - COMPACT_LIMIT} · Показать все
               </button>
             )}
-          </div>
+          </CollapsibleSection>
         </>
       )}
 

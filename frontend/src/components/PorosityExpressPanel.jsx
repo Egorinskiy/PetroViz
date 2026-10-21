@@ -8,6 +8,7 @@ import {
 import { PorosityCrossplots } from './PorosityCrossplots';
 import { PorosityStatistics } from './PorosityStatistics';
 import { FluidZonesEditor } from './FluidZonesEditor';
+import { CollapsibleSection } from './CollapsibleSection';
 
 const POROSITY_COLORS = {
   PHID: '#E65100',
@@ -146,67 +147,78 @@ export function PorosityExpressPanel({
   return (
     <div style={{ padding: 12 }}>
       {/* --- Параметры --- */}
-      <div className="computations-panel__section-title">Параметры</div>
+      <CollapsibleSection title="Параметры" storageKey="express-params">
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ fontSize: 11, color: '#666', display: 'block' }}>
+            Литология матрицы
+          </label>
+          <select
+            className="select"
+            value={lithology}
+            onChange={handleLithology}
+            style={{ width: '100%', fontSize: 12, marginTop: 2 }}
+          >
+            {Object.entries(LITHOLOGY_PRESETS).map(([key, p]) => (
+              <option key={key} value={key}>{p.label}</option>
+            ))}
+            <option value="custom">Кастомная</option>
+          </select>
+        </div>
 
-      <div style={{ marginBottom: 10 }}>
-        <label style={{ fontSize: 11, color: '#666', display: 'block' }}>
-          Литология матрицы
-        </label>
-        <select
-          className="select"
-          value={lithology}
-          onChange={handleLithology}
-          style={{ width: '100%', fontSize: 12, marginTop: 2 }}
-        >
-          {Object.entries(LITHOLOGY_PRESETS).map(([key, p]) => (
-            <option key={key} value={key}>{p.label}</option>
-          ))}
-          <option value="custom">Кастомная</option>
-        </select>
-      </div>
-
-      <ExpressSlider
-        name="rho_matrix" label="ρ матрицы" unit="g/cm³"
-        min={1.5} max={3.5} step={0.01}
-        value={params.rho_matrix} onChange={handleParam}
-      />
-      <ExpressSlider
-        name="rho_fluid" label="ρ флюида (базовое)" unit="g/cm³"
-        min={0.1} max={1.5} step={0.05}
-        value={params.rho_fluid} onChange={handleParam}
-      />
-      <ExpressSlider
-        name="dt_matrix" label="DT матрицы" unit="µs/ft"
-        min={30} max={100} step={0.5}
-        value={params.dt_matrix} onChange={handleParam}
-      />
-      <ExpressSlider
-        name="dt_fluid" label="DT флюида" unit="µs/ft"
-        min={100} max={700} step={1}
-        value={params.dt_fluid} onChange={handleParam}
-      />
+        <ExpressSlider
+          name="rho_matrix" label="ρ матрицы" unit="g/cm³"
+          min={1.5} max={3.5} step={0.01}
+          value={params.rho_matrix} onChange={handleParam}
+        />
+        <ExpressSlider
+          name="rho_fluid" label="ρ флюида (базовое)" unit="g/cm³"
+          min={0.1} max={1.5} step={0.05}
+          value={params.rho_fluid} onChange={handleParam}
+        />
+        <ExpressSlider
+          name="dt_matrix" label="DT матрицы" unit="µs/ft"
+          min={30} max={100} step={0.5}
+          value={params.dt_matrix} onChange={handleParam}
+        />
+        <ExpressSlider
+          name="dt_fluid" label="DT флюида" unit="µs/ft"
+          min={100} max={700} step={1}
+          value={params.dt_fluid} onChange={handleParam}
+        />
+      </CollapsibleSection>
 
       {/* --- Зоны флюидов --- */}
-      <div className="computations-panel__section-title" style={{ marginTop: 14 }}>
-        Зоны флюидов
-      </div>
-      <div className="text-xs text-muted" style={{ marginBottom: 6, lineHeight: 1.35 }}>
-        ρ<sub>f</sub> переопределяется по интервалам глубины (газ/нефть).
-      </div>
-      <FluidZonesEditor
-        zones={fluidZones}
-        onChange={setFluidZones}
-        minDepth={depthRange.min}
-        maxDepth={depthRange.max}
-      />
+      <CollapsibleSection
+        title="Зоны флюидов"
+        storageKey="express-zones"
+        style={{ marginTop: 14 }}
+      >
+        <div
+          className="text-xs text-muted"
+          style={{ marginBottom: 6, lineHeight: 1.35 }}
+        >
+          ρ<sub>f</sub> переопределяется по интервалам глубины (газ/нефть).
+        </div>
+        <FluidZonesEditor
+          zones={fluidZones}
+          onChange={setFluidZones}
+          minDepth={depthRange.min}
+          maxDepth={depthRange.max}
+        />
+      </CollapsibleSection>
 
       {/* --- Внешние кривые --- */}
-      <div className="computations-panel__section-title" style={{ marginTop: 14 }}>
-        Внешние кривые
-      </div>
-      <div className="text-xs text-muted" style={{ marginBottom: 6, lineHeight: 1.35 }}>
-        Добавьте кривую из LAS (например, ЯМК) для сравнения с расчётной пористостью.
-      </div>
+      <CollapsibleSection
+        title="Внешние кривые"
+        storageKey="express-external"
+        style={{ marginTop: 14 }}
+      >
+        <div
+          className="text-xs text-muted"
+          style={{ marginBottom: 6, lineHeight: 1.35 }}
+        >
+          Добавьте кривую из LAS (например, ЯМК) для сравнения с расчётной пористостью.
+        </div>
 
       {externalCurves.length > 0 && (
         <div style={{ marginBottom: 6 }}>
@@ -281,6 +293,7 @@ export function PorosityExpressPanel({
           Нет доступных кривых для добавления.
         </div>
       )}
+    </CollapsibleSection>
 
       {/* --- Под-вкладки --- */}
       <div
