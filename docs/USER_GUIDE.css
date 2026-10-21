@@ -1,0 +1,211 @@
+/* ============================================================================
+   USER_GUIDE — стиль для экспорта в PDF
+   Использует Geist Sans / Geist Mono из проекта
+   ============================================================================ */
+
+@font-face {
+  font-family: 'Geist Sans';
+  src: url('fonts/GeistSans-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('fonts/GeistMono-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --navy: #1A3D5C;
+  --red: #C62828;
+  --text: #222;
+  --muted: #666;
+  --border: #D0D7DE;
+  --border-light: #E8ECEF;
+  --bg-muted: #F5F8FA;
+  --accent: #2C5282;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Заголовки --- */
+h1, h2, h3, h4 {
+  font-weight: 700;
+  color: var(--navy);
+  page-break-after: avoid;
+  page-break-inside: avoid;
+}
+
+h1 {
+  font-size: 22pt;
+  margin: 0 0 16pt 0;
+  padding-bottom: 8pt;
+  border-bottom: 3px solid var(--navy);
+  page-break-before: always;
+}
+
+h1:first-of-type {
+  page-break-before: avoid;
+}
+
+h2 {
+  font-size: 16pt;
+  margin: 22pt 0 10pt 0;
+  padding-bottom: 4pt;
+  border-bottom: 1px solid var(--border);
+}
+
+h3 {
+  font-size: 13pt;
+  margin: 18pt 0 8pt 0;
+  color: var(--accent);
+}
+
+h4 {
+  font-size: 11pt;
+  margin: 14pt 0 6pt 0;
+  color: var(--text);
+}
+
+/* --- Параграфы и списки --- */
+p { margin: 0 0 8pt; }
+
+ul, ol {
+  margin: 6pt 0 10pt;
+  padding-left: 22pt;
+}
+
+li {
+  margin-bottom: 3pt;
+}
+
+li > ul, li > ol {
+  margin: 3pt 0;
+}
+
+strong {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+em { color: var(--muted); }
+
+/* --- Ссылки --- */
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* --- Inline code --- */
+code {
+  font-family: 'Geist Mono', 'Consolas', monospace;
+  font-size: 9pt;
+  background: #F0F2F5;
+  padding: 1pt 5pt;
+  border-radius: 3pt;
+  color: var(--red);
+  border: 1px solid var(--border-light);
+}
+
+/* --- Блоки кода --- */
+pre {
+  font-family: 'Geist Mono', 'Consolas', monospace;
+  font-size: 8.5pt;
+  background: #F8F9FA;
+  border: 1px solid var(--border);
+  border-radius: 4pt;
+  padding: 8pt 10pt;
+  overflow-x: auto;
+  line-height: 1.45;
+  page-break-inside: avoid;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 6pt 0 12pt;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  color: var(--text);
+  font-size: inherit;
+  border: none;
+}
+
+/* --- Таблицы --- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8pt 0 14pt;
+  font-size: 9pt;
+  page-break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid var(--border);
+  padding: 5pt 8pt;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--bg-muted);
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 9pt;
+}
+
+tr:nth-child(even) td {
+  background: #FAFBFC;
+}
+
+/* --- Цитаты --- */
+blockquote {
+  margin: 10pt 0;
+  padding: 8pt 12pt;
+  border-left: 4px solid var(--navy);
+  background: var(--bg-muted);
+  color: #444;
+  page-break-inside: avoid;
+}
+
+blockquote p:last-child { margin-bottom: 0; }
+
+/* --- Изображения --- */
+img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 4pt;
+  margin: 8pt 0;
+  page-break-inside: avoid;
+  display: block;
+}
+
+/* --- Разделитель --- */
+hr {
+  border: none;
+  border-top: 1px solid var(--border-light);
+  margin: 16pt 0;
+}
+
+/* --- Ссылки на разделы (TOC) --- */
+a[href^="#"] {
+  color: var(--accent);
+}
+
+/* --- Предотвращение разрывов --- */
+h1 + p, h2 + p, h3 + p, h4 + p {
+  page-break-before: avoid;
+}
