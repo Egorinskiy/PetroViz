@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { useComputePreview } from '../hooks/useComputePreview';
 import { useSavedComputations } from '../hooks/useSavedComputations';
 import { MethodSelector } from './MethodSelector';
@@ -24,6 +25,16 @@ export function ComputationsPanel({
 }) {
   const wellId = well?.well_id || null;
   const availableCurves = well?.curves || [];
+
+  const { user } = useAuth();
+  const canCompute =
+    user && (user.role === 'admin' || user.role === 'geophysicist');
+  const canDeleteItem = (item) => {
+    if (!user) return false;
+    if (user.role === 'viewer') return false; // viewer строго read-only
+    if (user.role === 'admin') return true;
+    return item.user_id === user.id;
+  };
 
   const [activeTab, setActiveTab] = useState('single');
   const [expressData, setExpressData] = useState(null);
@@ -360,35 +371,42 @@ export function ComputationsPanel({
                   })()}
                 </div>
 
-                <button
-                  className="btn btn--primary"
-                  onClick={handleOpenSaveModal}
-                  disabled={saving || !previewData || refsIncomplete}
+                <span
                   title={
-                    refsIncomplete
+                    !canCompute
+                      ? 'Требуется роль geophysicist'
+                      : refsIncomplete
                       ? `Выберите: ${missingRefs.map((r) => r.label).join(', ')}`
                       : !previewData
                       ? 'Сначала дождитесь расчёта'
                       : 'Сохранить расчёт в БД'
                   }
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    flexShrink: 0,
-                  }}
+                  style={{ display: 'block', width: '100%' }}
                 >
-                  {saving ? (
-                    'Сохранение…'
-                  ) : (
-                    <>
-                      <SaveIcon size={16} />
-                      <span>Сохранить расчёт</span>
-                    </>
-                  )}
-                </button>
+                  <button
+                    className="btn btn--primary"
+                    onClick={handleOpenSaveModal}
+                    disabled={saving || !previewData || refsIncomplete || !canCompute}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      flexShrink: 0,
+                      cursor: !canCompute ? 'not-allowed' : undefined,
+                    }}
+                  >
+                    {saving ? (
+                      'Сохранение…'
+                    ) : (
+                      <>
+                        <SaveIcon size={16} />
+                        <span>Сохранить расчёт</span>
+                      </>
+                    )}
+                  </button>
+                </span>
 
                 {saveError && (
                   <div className="banner banner--error">{saveError}</div>
@@ -490,14 +508,28 @@ export function ComputationsPanel({
                   >
                     {onTrack ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
                   </button>
-                  <button
-                    className="btn btn--ghost btn--sm"
-                    title="Удалить"
-                    onClick={() => handleRequestDelete(item)}
-                    style={{ padding: '4px 6px' }}
+                  <span
+                    title={
+                      !canDeleteItem(item)
+                        ? user?.role === 'viewer'
+                          ? 'Требуется роль geophysicist'
+                          : 'Удаление доступно только автору'
+                        : 'Удалить'
+                    }
+                    style={{ display: 'inline-block' }}
                   >
-                    <TrashIcon size={14} />
-                  </button>
+                    <button
+                      className="btn btn--ghost btn--sm"
+                      disabled={!canDeleteItem(item)}
+                      onClick={() => handleRequestDelete(item)}
+                      style={{
+                        padding: '4px 6px',
+                        cursor: !canDeleteItem(item) ? 'not-allowed' : undefined,
+                      }}
+                    >
+                      <TrashIcon size={14} />
+                    </button>
+                  </span>
                 </div>
               );
             })}
@@ -554,11 +586,11 @@ export function ComputationsPanel({
             try {
               await removeComputation(id);
             } catch (err) {
-              // Ошибку покажет AllComputationsModal через локальный alert-стиль
               throw err;
             }
           }}
           onClose={() => setAllModalOpen(false)}
+          canDelete={canDeleteItem}
         />
       )}
 

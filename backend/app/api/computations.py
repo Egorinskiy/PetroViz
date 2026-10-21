@@ -15,14 +15,14 @@ from ..computation.computation_schemas import (
 )
 from ..repositories.computation_repository import ComputationRepository
 from ..repositories.well_repository import WellRepository
-from ..auth.dependencies import get_current_user
+from ..auth.dependencies import get_current_user, require_role, ForbiddenError
 from ..computation.schemas import (
     ComputeRequest, ComputeResponse, CurveResult,
     MethodsListResponse, MethodSpec,
     ExternalCurveRequest, ExternalCurveResponse,
 )
 from ..computation.service import ComputationService
-from ..db.models import User
+from ..db.models import User, UserRole
 from ..db.session import get_session
 from ..services.petrophysics import METHODS
 
@@ -87,7 +87,7 @@ async def save_computation(
     well_id: _uuid.UUID,
     data: SaveComputationRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.GEOPHYSICIST)),
 ):
     """
     Сохраняет текущий расчёт:
@@ -204,13 +204,23 @@ async def delete_computation(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    """Удаляет сохранённый расчёт."""
+    """Удаляет сохранённый расчёт. Мягкая политика: admin — любые, автор — свои."""
     repo = ComputationRepository(session)
     comp = await repo.get(comp_id)
     if comp is None:
         return None
 
-    # Проверка доступа
+    # Проверка прав: viewer не может удалять вообще
+    if current_user.role == UserRole.VIEWER:
+        raise ForbiddenError("Роль viewer не позволяет удалять расчёты")
+
+    # Мягкая политика: admin — любые, geophysicist — только свои
+    if current_user.role != UserRole.ADMIN and comp.user_id != current_user.id:
+        raise ForbiddenError(
+            "Удалить расчёт может только автор или администратор"
+        )
+
+    # Проверка доступа к скважине (как было)
     well_repo = WellRepository(session)
     well_result = await well_repo.get(comp.well_id, user_id=current_user.id)
     if well_result is None:
