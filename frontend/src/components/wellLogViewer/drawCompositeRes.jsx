@@ -111,8 +111,7 @@ export function drawCompositeRes(
       .datum(r0Data.values)
       .attr('fill', 'none')
       .attr('stroke', '#D81B60')  // малиново-розовый, контрастный к серо-чёрному
-      .attr('stroke-width', 2.2)
-      .attr('stroke-dasharray', '6,4')
+      .attr('stroke-width', 1.5)
       .attr('d', r0Line)
       .attr('clip-path', clipId);
 

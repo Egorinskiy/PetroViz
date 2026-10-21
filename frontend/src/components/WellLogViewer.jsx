@@ -51,6 +51,35 @@ function _hasRtCurve(curvesToPlot) {
   return (curvesToPlot || []).some(_isRtCurve);
 }
 
+/**
+ * Приводит расчётную кривую к тем же глубинам, что и wellData (прореженные).
+ * Использует nearest-index: для каждой глубины из wellDepths находит
+ * ближайший по значению индекс в srcDepths.
+ *
+ * Нужен для того, чтобы расчётные кривые (preview / express / saved) имели
+ * ту же детализацию, что и исходные (pixel_width от масштаба).
+ */
+function _mapToWellDepths(srcDepths, srcValues, wellDepths) {
+  if (!srcDepths || !srcValues || !wellDepths) return [];
+  const n = srcDepths.length;
+  if (n === 0) return new Array(wellDepths.length).fill(null);
+
+  const result = new Array(wellDepths.length);
+  let j = 0;
+  for (let i = 0; i < wellDepths.length; i++) {
+    const d = wellDepths[i];
+    // Продвигаем указатель, пока следующая глубина ближе к d
+    while (
+      j + 1 < n &&
+      Math.abs(srcDepths[j + 1] - d) < Math.abs(srcDepths[j] - d)
+    ) {
+      j++;
+    }
+    result[i] = srcValues[j] ?? null;
+  }
+  return result;
+}
+
 const WellLogViewer = ({
   wellData,
   curvesToPlot,
@@ -72,15 +101,21 @@ const WellLogViewer = ({
     const tracks = buildTracks(curvesToPlot);
 
     // ====================================================================
-    // Собираем все preview-кривые (live + saved) в словарь по mnemonic
+    // Собираем все preview-кривые (live + saved) в словарь по mnemonic.
+    // B35: мапим расчётные кривые на прореженный wellData.depth —
+    // чтобы детализация была такой же, как у исходных кривых.
     // ====================================================================
     const allCurves = {};
     if (previewData?.curves) {
       for (const [mnemonic, curve] of Object.entries(previewData.curves)) {
         allCurves[mnemonic] = {
           mnemonic,
-          values: curve.values,
-          depth: previewData.depth,
+          values: _mapToWellDepths(
+            previewData.depth,
+            curve.values,
+            wellData.depth
+          ),
+          depth: wellData.depth,
           isSaved: false,
           key: `live-${mnemonic}`,
         };
@@ -91,8 +126,8 @@ const WellLogViewer = ({
       if (!allCurves[mnemonic]) {
         allCurves[mnemonic] = {
           mnemonic,
-          values: t.values,
-          depth: t.depth,
+          values: _mapToWellDepths(t.depth, t.values, wellData.depth),
+          depth: wellData.depth,
           isSaved: true,
           key: `saved-${t.id}`,
         };
@@ -125,11 +160,21 @@ const WellLogViewer = ({
       return true;
     });
 
-    // Express-трек
-    const expressCurves = porosityExpress?.curves
-      ? Object.entries(porosityExpress.curves)
+    // Express-трек (B35: мапим на wellData.depth)
+    const expressCurves = porosityExpress?.curves && porosityExpress?.depth
+      ? Object.entries(porosityExpress.curves).map(([mnemonic, curve]) => [
+          mnemonic,
+          {
+            ...curve,
+            values: _mapToWellDepths(
+              porosityExpress.depth,
+              curve.values,
+              wellData.depth
+            ),
+          },
+        ])
       : [];
-    const hasExpress = expressCurves.length > 0 && porosityExpress?.depth;
+    const hasExpress = expressCurves.length > 0;
 
     // ====================================================================
     // ГЕОМЕТРИЯ: Массив ширин треков
@@ -387,7 +432,7 @@ const WellLogViewer = ({
       const xOffset = xOffsets[idx];
       const trackW = trackWidths[idx];
       const clipId = `url(#clip-track-${idx})`;
-      const trackDepth = porosityExpress.depth;
+      const trackDepth = wellData.depth;
 
       g.append('rect')
         .attr('x', xOffset).attr('y', 0)
@@ -556,7 +601,7 @@ function drawSwSwTrack(g, swData, swiData, xOffset, trackWidth, innerHeight, y, 
       .datum(swData.values)
       .attr('fill', 'none')
       .attr('stroke', '#1565C0')
-      .attr('stroke-width', 2.5)
+      .attr('stroke-width', 1.8)
       .attr('d', swLine)
       .attr('clip-path', clipId);
   }

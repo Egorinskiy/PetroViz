@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useWellList } from './hooks/useWellList';
 import { useAuth } from './hooks/useAuth';
 import { apiClient } from './api/axiosClient';
-import { DEFAULT_SCALE } from './constants/depthScales';
+import { DEFAULT_SCALE, computePixelWidth } from './constants/depthScales';
 import { MAX_CURVES } from './constants/limits';
 import { Topbar } from './components/Topbar';
 import { CurvesBar } from './components/CurvesBar';
@@ -37,6 +37,7 @@ function MainPage() {
   const [selectedCurves, setSelectedCurves] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [scale, setScale] = useState(DEFAULT_SCALE);
 
   // --- B10: шаг сетки глубин ---
@@ -66,7 +67,7 @@ function MainPage() {
   const debounceRef = useRef(null);
 
   // --- Загрузка данных выбранной скважины ---
-  const fetchCurveData = useCallback(async (wellId, curves) => {
+  const fetchCurveData = useCallback(async (wellId, curves, scaleKey) => {
     if (!wellId || curves.length === 0) {
       setWellData(null);
       return;
@@ -74,11 +75,12 @@ function MainPage() {
     setDataLoading(true);
     setDataError(null);
     try {
+      const pixelWidth = computePixelWidth(scaleKey);
       const response = await apiClient.get(`/wells/${wellId}/data`, {
         params: {
           curves: curves.join(','),
           mode: 'pixel',
-          pixel_width: 3000,
+          pixel_width: pixelWidth,
         },
       });
       setWellData(response.data);
@@ -86,6 +88,7 @@ function MainPage() {
       setDataError(extractErrorMessage(err, 'Не удалось загрузить данные скважины'));
     } finally {
       setDataLoading(false);
+      setIsInitialLoad(false);
     }
   }, []);
 
@@ -93,12 +96,12 @@ function MainPage() {
     if (!activeWellId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      fetchCurveData(activeWellId, selectedCurves);
+      fetchCurveData(activeWellId, selectedCurves, scale);
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [activeWellId, selectedCurves, fetchCurveData]);
+  }, [activeWellId, selectedCurves, scale, fetchCurveData]);
 
   // --- B27: persist видимости кривых ---
   useEffect(() => {
@@ -132,6 +135,7 @@ function MainPage() {
     setSelectedCurves(fallback);
 
     setWellData(null);
+    setIsInitialLoad(true);
     setPreviewData(null);
     setPorosityExpress(null);
     setFluidZones([]);
@@ -335,12 +339,42 @@ function MainPage() {
                     topDepth={depthRange?.top ?? null}
                     bottomDepth={depthRange?.bottom ?? null}
                   />
-                  {dataLoading && (
+                  {/* Первая загрузка скважины — полноэкранный overlay */}
+                  {dataLoading && isInitialLoad && (
                     <div className="loading-overlay">
                       <div className="progress-bar">
                         <div className="progress-bar-inner" />
                       </div>
-                      <p>Обновление данных…</p>
+                      <p>Загрузка данных…</p>
+                    </div>
+                  )}
+
+                  {/* Обновление (смена масштаба / кривых) — маленький badge */}
+                  {dataLoading && !isInitialLoad && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 6,
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        color: 'var(--color-text-muted)',
+                        boxShadow: 'var(--shadow-sm)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        zIndex: 5,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <span
+                        className="spinner"
+                        style={{ width: 10, height: 10 }}
+                      />
+                      <span>Обновление…</span>
                     </div>
                   )}
                 </div>

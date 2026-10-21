@@ -11,7 +11,7 @@ export const DEPTH_SCALES = {
 
 export const DEFAULT_SCALE = 'full';
 export const FULL_SCALE_HEIGHT = 720;
-export const MIN_CANVAS_HEIGHT = 400;
+export const MIN_CANVAS_HEIGHT = 200;
 export const MAX_CANVAS_HEIGHT = 40000;
 
 export function computeCanvasHeight(scaleKey, depthRange) {
@@ -76,4 +76,32 @@ export function generateDepthTicks(minDepth, maxDepth, step) {
     if (++n > maxIter) break;
   }
   return ticks;
+}
+
+// ============================================================================
+// B35: адаптивное прореживание данных под масштаб
+// ============================================================================
+
+/**
+ * Оптимальный pixel_width для каждого масштаба.
+ *
+ * Логика эмпирическая: при 1:200 детализация максимальна (смотрим детально),
+ * при 1:5000 / full — избыточные точки только замедляют рендер.
+ * Для 1:5000 и full оставлен запас на retina / zoom браузера.
+ */
+export const PIXEL_WIDTH_BY_SCALE = {
+  '1:200':  3000,  // высокая детализация (без изменений)
+  '1:500':  1500,  // -25%
+  '1:1000': 900,   // -25%
+  '1:2000': 600,   // -25%
+  '1:5000': 450,   // -25%
+  'full':   675,   // -25%
+};
+
+/**
+ * Возвращает pixel_width для масштаба.
+ * Fallback 3000, если ключ неизвестен (защита от новых масштабов).
+ */
+export function computePixelWidth(scaleKey) {
+  return PIXEL_WIDTH_BY_SCALE[scaleKey] ?? 3000;
 }
