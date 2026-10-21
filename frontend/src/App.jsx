@@ -4,6 +4,7 @@ import { useWellList } from './hooks/useWellList';
 import { useAuth } from './hooks/useAuth';
 import { apiClient } from './api/axiosClient';
 import { DEFAULT_SCALE } from './constants/depthScales';
+import { MAX_CURVES } from './constants/limits';
 import { Topbar } from './components/Topbar';
 import { CurvesBar } from './components/CurvesBar';
 import { CurvesPanel } from './components/CurvesPanel';
@@ -62,7 +63,6 @@ function MainPage() {
   const [fluidZones, setFluidZones] = useState([]);
   const [savedTracks, setSavedTracks] = useState([]);
 
-  const MAX_CURVES = 8;
   const debounceRef = useRef(null);
 
   // --- Загрузка данных выбранной скважины ---

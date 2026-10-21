@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { isServiceCurve } from '../constants/curveFamilies';
 import { CurveCheckbox } from './CurveCheckbox';
-
-const MAX_CURVES = 8;
+import { MAX_CURVES } from '../constants/limits';
 
 export function CurvesPanel({
   availableCurves,

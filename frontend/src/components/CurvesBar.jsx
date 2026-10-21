@@ -1,6 +1,5 @@
 import React from 'react';
-
-const MAX_CURVES = 8;
+import { MAX_CURVES } from '../constants/limits';
 
 export function CurvesBar({ selectedCurves }) {
   return (
