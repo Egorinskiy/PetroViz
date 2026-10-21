@@ -21,7 +21,6 @@ export function Topbar({
   onToggleCurves,
   wellName = null,
   showSharedBadge = false,
-  // B10 / B6
   gridStep = 'auto',
   onGridStepChange,
   minDepth = null,
@@ -32,24 +31,20 @@ export function Topbar({
   return (
     <div className="topbar">
       <Logo variant="text" size={32} className="topbar-logo" />
+
+      <div className="topbar-sep" />
+
       <FileUpload fileName={fileName} onFileSelect={onFileSelect} />
 
       {showCurvesButton && (
         <button
-          className={`btn ${
-            curvesVisible ? 'btn--primary' : 'btn--secondary'
-          }`}
+          className={`btn ${curvesVisible ? 'btn--primary' : 'btn--secondary'}`}
           onClick={onToggleCurves}
           title={
             curvesVisible
               ? 'Скрыть блок выбора кривых'
               : 'Показать блок выбора кривых'
           }
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
         >
           <CurvesIcon size={16} />
           <span>Кривые</span>
@@ -58,16 +53,9 @@ export function Topbar({
 
       {showComputations && (
         <button
-          className={`btn ${
-            computationsOpen ? 'btn--primary' : 'btn--secondary'
-          }`}
+          className={`btn ${computationsOpen ? 'btn--primary' : 'btn--secondary'}`}
           onClick={onToggleComputations}
           title="Панель петрофизических расчётов"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
         >
           <ChartIcon size={16} />
           <span>Расчёты</span>
@@ -75,13 +63,18 @@ export function Topbar({
       )}
 
       {wellName && (
-        <div className="topbar-well" title={wellName}>
-          <span className="topbar-well-name">{wellName}</span>
-          {showSharedBadge && (
-            <span className="badge badge--shared">shared</span>
-          )}
-        </div>
+        <>
+          <div className="topbar-sep" />
+          <div className="topbar-well-block" title={wellName}>
+            <span className="well-name">{wellName}</span>
+            {showSharedBadge && (
+              <span className="badge badge--shared">shared</span>
+            )}
+          </div>
+        </>
       )}
+
+      <div className="topbar-spacer" />
 
       {showScale && onGridStepChange && (
         <GridStepSelect value={gridStep} onChange={onGridStepChange} />
@@ -97,7 +90,13 @@ export function Topbar({
       )}
 
       {showScale && <ScaleSelector value={scale} onChange={onScaleChange} />}
-      {rightSlot}
+
+      {rightSlot && (
+        <>
+          <div className="topbar-sep" />
+          {rightSlot}
+        </>
+      )}
     </div>
   );
 }

@@ -15,51 +15,152 @@
 }
 
 /* ============================================================================
-   TOPBAR
+   TOPBAR — унификация (B38)
    ============================================================================ */
 
 .topbar {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: 8px;
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--color-border-light);
   margin-bottom: var(--space-2);
+  min-height: 40px;
 }
 
 .topbar-logo {
   flex-shrink: 0;
 }
 
-.topbar-well {
+/* Единый размер для всех интерактивных элементов топбара */
+.topbar .btn,
+.topbar .file-upload,
+.topbar .view-control--button,
+.topbar .view-control__select,
+.topbar .scale-selector .select,
+.topbar .user-menu-trigger {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-left: var(--space-4);
-  min-width: 0;
-  max-width: 260px;
-  font-size: var(--fs-base);
-  font-weight: var(--fw-medium);
-  color: var(--color-brand-navy);
+  gap: 6px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
-.topbar-well-name {
+.topbar .btn {
+  padding: 0 12px;
+}
+
+.topbar .file-upload {
+  padding: 0 14px;
+  font-weight: var(--fw-medium);
+}
+
+/* Обёртка view-control не должна влиять на размер */
+.topbar .view-control {
+  gap: 6px;
+  align-items: center;
+}
+
+.topbar .view-control--button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(44, 82, 130, 0.15);
+}
+
+.topbar .view-control__label {
+  font-size: 12px;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+/* Селекты */
+.topbar .view-control__select,
+.topbar .scale-selector .select {
+  appearance: none;
+  padding: 0 28px 0 12px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'><path fill='%23666' d='M6 9L2 4h8z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-color: #fff;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.topbar .view-control__select:focus,
+.topbar .scale-selector .select:focus {
+  outline: none;
+  border-color: var(--color-accent-blue);
+}
+
+.topbar .view-control--button {
+  padding: 0 12px;
+}
+
+/* Scale-selector — без margin-left auto (управляется spacer) */
+.topbar .scale-selector {
+  margin-left: 0;
+  gap: 6px;
+}
+
+/* Well name — акцентный блок */
+.topbar-well-block {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 6px;
+  background: var(--color-bg-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  color: var(--color-brand-navy);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  box-sizing: border-box;
+  flex-shrink: 0;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.topbar-well-block .well-name {
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Разделитель между группами */
+.topbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border-light);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+/* Spacer — прижимает view controls к правому краю */
+.topbar-spacer {
+  flex: 1;
   min-width: 0;
 }
 
-.admin-badge {
-  display: inline-block;
-  padding: 2px var(--space-3);
-  background: var(--color-brand-navy);
-  color: #fff;
-  border-radius: var(--radius-full);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+/* UserMenu — менее круглый (8px вместо full) */
+.topbar .user-menu {
+  margin-left: 0;
+}
+
+.topbar .user-menu-trigger {
+  border-radius: 8px;
+  padding: 0 10px 0 4px;
+}
+
+.topbar .user-avatar {
+  border-radius: 50%;
 }
 
 /* ============================================================================
