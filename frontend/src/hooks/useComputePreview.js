@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { computationsApi } from '../api/computations';
+import { extractErrorMessage } from '../utils/errors';
 
 const PREVIEW_DEBOUNCE_MS = 400;
 
@@ -41,7 +42,7 @@ export function useComputePreview({ wellId, enabled }) {
       })
       .catch((err) => {
         if (cancelled) return;
-        setMethodsError(err.response?.data?.detail || err.message);
+        setMethodsError(extractErrorMessage(err, 'Не удалось загрузить методы'));
       });
 
     return () => {
@@ -101,10 +102,7 @@ export function useComputePreview({ wellId, enabled }) {
       setPreviewData(data);
       setWarnings(data.warnings || []);
     } catch (err) {
-      const detail = err.response?.data?.detail || err.message;
-      setPreviewError(
-        typeof detail === 'string' ? detail : JSON.stringify(detail)
-      );
+      setPreviewError(extractErrorMessage(err, 'Не удалось выполнить расчёт'));
     } finally {
       setPreviewLoading(false);
     }

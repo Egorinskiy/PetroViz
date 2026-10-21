@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { extractErrorMessage } from '../utils/errors';
 import { Logo } from '../components/Logo';
 
 export function RegisterPage() {
@@ -29,8 +30,7 @@ export function RegisterPage() {
       setSuccess(true);
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
-      const detail = err.response?.data?.detail || err.message || 'Ошибка регистрации';
-      setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      setError(extractErrorMessage(err, 'Не удалось зарегистрироваться'));
     } finally {
       setLoading(false);
     }

@@ -22,6 +22,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminWellsPage } from './pages/AdminWellsPage';
 import { computationsApi } from './api/computations';
+import { extractErrorMessage } from './utils/errors';
 import './App.css';
 
 function MainPage() {
@@ -61,7 +62,7 @@ function MainPage() {
   const [fluidZones, setFluidZones] = useState([]);
   const [savedTracks, setSavedTracks] = useState([]);
 
-  const MAX_CURVES = 12;
+  const MAX_CURVES = 8;
   const debounceRef = useRef(null);
 
   // --- Загрузка данных выбранной скважины ---
@@ -82,7 +83,7 @@ function MainPage() {
       });
       setWellData(response.data);
     } catch (err) {
-      setDataError(err.response?.data?.detail || err.message);
+      setDataError(extractErrorMessage(err, 'Не удалось загрузить данные скважины'));
     } finally {
       setDataLoading(false);
     }
@@ -163,8 +164,7 @@ function MainPage() {
       };
       handleSelectWell(newWell);
     } catch (err) {
-      const detail = err.response?.data?.detail || err.message;
-      setDataError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      setDataError(extractErrorMessage(err, 'Не удалось загрузить файл'));
     } finally {
       setDataLoading(false);
     }
@@ -185,8 +185,8 @@ function MainPage() {
       }
       await reload();
     } catch (err) {
-      const detail = err.response?.data?.detail || err.message;
-      alert(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      // TODO (backlog): заменить alert на стилизованный ErrorModal
+      alert(extractErrorMessage(err, 'Не удалось удалить скважину'));
     }
   };
 
@@ -209,8 +209,7 @@ function MainPage() {
         ];
       });
     } catch (err) {
-      const detail = err.response?.data?.detail || err.message;
-      alert(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      alert(extractErrorMessage(err, 'Не удалось загрузить расчёт'));
     }
   }, []);
 

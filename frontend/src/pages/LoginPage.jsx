@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Logo } from '../components/Logo';
+import { extractErrorMessage } from '../utils/errors';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
@@ -22,8 +23,7 @@ export function LoginPage() {
       await login(username, password);
       navigate(from, { replace: true });
     } catch (err) {
-      const detail = err.response?.data?.detail || err.message || 'Не удалось войти';
-      setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      setError(extractErrorMessage(err, 'Не удалось войти'));
     } finally {
       setLoading(false);
     }

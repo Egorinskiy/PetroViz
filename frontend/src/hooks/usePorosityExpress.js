@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { computationsApi } from '../api/computations';
+import { extractErrorMessage } from '../utils/errors';
 
 const DEBOUNCE_MS = 400;
 
@@ -108,8 +109,11 @@ export function usePorosityExpress({
           .preview(wellId, m.key, m.mapping, m.params)
           .then((data) => ({ ok: true, kind: 'calc', key: m.key, mnemonic: m.label, data }))
           .catch((err) => ({
-            ok: false, kind: 'calc', key: m.key, mnemonic: m.label,
-            error: err.response?.data?.detail || err.message,
+            ok: false,
+            kind: 'calc',
+            key: m.key,
+            mnemonic: m.label,
+            error: extractErrorMessage(err, 'ошибка расчёта'),
           }))
       );
 
@@ -118,8 +122,10 @@ export function usePorosityExpress({
           .externalCurve(wellId, c.mnemonic)
           .then((data) => ({ ok: true, kind: 'external', mnemonic: c.mnemonic, data }))
           .catch((err) => ({
-            ok: false, kind: 'external', mnemonic: c.mnemonic,
-            error: err.response?.data?.detail || err.message,
+            ok: false,
+            kind: 'external',
+            mnemonic: c.mnemonic,
+            error: extractErrorMessage(err, 'ошибка загрузки'),
           }))
       );
 
@@ -154,7 +160,7 @@ export function usePorosityExpress({
       setPreviewData(merged);
       setPerMethod(pm);
     } catch (err) {
-      setError(err.message);
+      setError(extractErrorMessage(err, 'Не удалось выполнить экспресс-расчёт'));
     } finally {
       setLoading(false);
     }

@@ -19,6 +19,22 @@ from ..services.petrophysics import METHODS
 
 logger = logging.getLogger("petroviz.computation")
 
+# Человеческие названия ролей для сообщений об ошибках
+_ROLE_LABELS = {
+    "gr": "гамма-каротаж (GR)",
+    "rhob": "плотность (RHOB)",
+    "nphi": "нейтронный каротаж (NPHI)",
+    "dtc": "акустический каротаж (DTC)",
+    "rt": "сопротивление (Rt)",
+    "pef": "фотоэлектрический фактор (PEF)",
+    "vsh": "глинистость (Vsh)",
+    "phi": "пористость (PHI)",
+    "swi": "связанная вода (Swi)",
+}
+
+
+def _role_label(role: str) -> str:
+    return _ROLE_LABELS.get(role, role)
 
 class MethodNotFoundError(PetroVizError):
     status_code = 404
@@ -84,18 +100,18 @@ class ComputationService:
 
         for role in spec["requires"]:
             mnemonic = curve_mapping.get(role)
+            label = _role_label(role)
             if mnemonic is None or mnemonic == "":
                 mnemonic = self._auto_detect(df, role)
                 if mnemonic is None:
                     raise CurveMappingError(
-                        f"Curve for role '{role}' not specified and no auto-detection "
-                        f"possible. Available columns: {list(df.columns)}"
+                        f"Не найдена кривая для {label}. "
+                        f"Выберите её вручную в разделе «Входные кривые»."
                     )
 
             if mnemonic not in df.columns:
                 raise CurveMappingError(
-                    f"Mnemonic '{mnemonic}' for role '{role}' not found in well data. "
-                    f"Available: {list(df.columns)}"
+                    f"Кривая «{mnemonic}» для {label} отсутствует в файле скважины."
                 )
 
             input_series[role] = df[mnemonic]
@@ -138,11 +154,11 @@ class ComputationService:
 
         if not computation_refs:
             roles = ", ".join(
-                f"'{r}' ({required[r]['label']})" for r in required
+                f"«{required[r]['label']}»" for r in required
             )
             raise ComputationRefError(
-                f"Method '{spec['key']}' requires saved computations for roles: "
-                f"{roles}. Please provide 'computation_refs' with computation IDs."
+                f"Для этого расчёта нужны сохранённые источники: {roles}. "
+                f"Выберите их в разделе «Источники данных»."
             )
 
         repo = ComputationRepository(self.session)
@@ -154,27 +170,26 @@ class ComputationService:
             comp_id_str = computation_refs.get(role)
             if not comp_id_str:
                 raise ComputationRefError(
-                    f"Missing computation reference for role '{role}' "
-                    f"({req['label']}). Save a '{req['category']}' computation first."
+                    f"Не выбран источник для «{req['label']}». "
+                    f"Сначала сохраните соответствующий расчёт."
                 )
 
             try:
                 comp_uuid = uuid.UUID(comp_id_str)
             except ValueError:
                 raise ComputationRefError(
-                    f"Invalid computation ID for role '{role}': '{comp_id_str}'"
+                    f"Некорректный идентификатор сохранённого расчёта для «{req['label']}»."
                 )
 
             comp = await repo.get(comp_uuid)
             if comp is None:
                 raise ComputationRefError(
-                    f"Computation '{comp_id_str}' (role '{role}') not found."
+                    f"Сохранённый расчёт для «{req['label']}» не найден. Возможно, он удалён."
                 )
 
             if comp.well_id != well_id:
                 raise ComputationRefError(
-                    f"Computation '{comp_id_str}' (role '{role}') belongs to "
-                    f"a different well."
+                    f"Сохранённый расчёт для «{req['label']}» принадлежит другой скважине."
                 )
 
             # Проверка категории метода
@@ -182,17 +197,17 @@ class ComputationService:
             comp_category = comp_spec.get("category", "")
             if comp_category != req["category"]:
                 raise ComputationRefError(
-                    f"Computation '{comp_id_str}' (role '{role}') has method "
-                    f"'{comp.method}' (category '{comp_category}'), "
-                    f"but category '{req['category']}' is required."
+                    f"Для «{req['label']}» нужен расчёт категории "
+                    f"«{req['category']}», а выбран «{comp.method}» "
+                    f"(категория «{comp_category}»)."
                 )
 
             # Загрузка данных из parquet
             ref_depth, ref_values = await repo.load_data(comp)
             if not ref_depth:
                 raise ComputationRefError(
-                    f"Computation '{comp_id_str}' (role '{role}') has no data — "
-                    f"parquet file missing or empty."
+                    f"Данные сохранённого расчёта для «{req['label']}» потеряны. "
+                    f"Пересчитайте и сохраните его заново."
                 )
 
             # Жёсткая проверка глубин
@@ -200,13 +215,9 @@ class ComputationService:
                 ref_depth, df.index.values, rtol=1e-6, atol=1e-9
             ):
                 raise ComputationRefError(
-                    f"Computation '{comp_id_str}' (role '{role}') depth mismatch. "
-                    f"Expected {len(df.index)} samples "
-                    f"({df.index[0]:.2f}..{df.index[-1]:.2f}), "
-                    f"got {len(ref_depth)} "
-                    f"({ref_depth[0]:.2f}..{ref_depth[-1]:.2f}). "
-                    f"Возможно, скважина была перезалита — "
-                    f"пересчитайте '{role}' и сохраните заново."
+                    f"Глубины сохранённого расчёта для «{req['label']}» не совпадают "
+                    f"с текущей скважиной. Возможно, скважина была перезалита — "
+                    f"пересчитайте «{req['label']}» и сохраните заново."
                 )
 
             refs_series[role] = pd.Series(ref_values, index=df.index)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { computationsApi } from '../api/computations';
+import { extractErrorMessage } from '../utils/errors';
 
 /**
  * Хук для работы со сохранёнными расчётами скважины.
@@ -24,8 +25,7 @@ export function useSavedComputations({ wellId, enabled }) {
       const list = await computationsApi.listForWell(wellId);
       setItems(list);
     } catch (err) {
-      const detail = err.response?.data?.detail || err.message;
-      setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      setError(extractErrorMessage(err, 'Не удалось загрузить расчёты'));
     } finally {
       setLoading(false);
     }
