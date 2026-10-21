@@ -272,7 +272,7 @@ const WellLogViewer = ({
     const depthRange = depthExtent[1] - depthExtent[0];
     const innerHeight = computeCanvasHeight(scale, depthRange);
 
-    const margin = { top: 25, right: 30, bottom: 130, left: 80 };
+    const margin = { top: 15, right: 20, bottom: 60, left: 55 };
     const totalWidth = innerWidth + margin.left + margin.right;
     const totalHeight = innerHeight + margin.top + margin.bottom;
 
@@ -335,7 +335,7 @@ const WellLogViewer = ({
 
     g.append('text')
       .attr('transform', 'rotate(-90)')
-      .attr('y', -55)
+      .attr('y', -40)
       .attr('x', -innerHeight / 2)
       .attr('text-anchor', 'middle')
       .style('font-size', '13px')
@@ -447,11 +447,18 @@ const WellLogViewer = ({
   }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, fluidZones, savedTracks, gridStep, topDepth, bottomDepth]);
 
   return (
-    <div style={{ marginTop: '5px' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      flex: '0 1 auto',
+      minHeight: 0,
+      marginTop: '5px',
+    }}>
       <div
         style={{
+          flex: '0 1 auto',
+          minHeight: 0,
           overflow: 'auto',
-          maxHeight: 'calc(100vh - 140px)',
           border: '1px solid #ccc',
           borderRadius: '4px',
           padding: '10px',
@@ -827,9 +834,9 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
       .attr('clip-path', clipId);
   });
 
-  // Легенда под треком — все мнемоники в ряд
-  const legendY = innerHeight + 45;
-  const itemWidth = Math.min(50, trackWidth / Math.max(group.length, 1));
+  // Легенда под треком — все мнемоники в ряд (B37: компактнее)
+  const legendY = innerHeight + 32;
+  const itemWidth = Math.min(45, trackWidth / Math.max(group.length, 1));
   const startX = xOffset + (trackWidth - itemWidth * group.length) / 2;
 
   let legendColorIndex = 0;
@@ -875,9 +882,9 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
   // Заголовок группы
   g.append('text')
     .attr('x', xOffset + trackWidth / 2)
-    .attr('y', innerHeight + 62)
+    .attr('y', innerHeight + 48)
     .attr('text-anchor', 'middle')
-    .style('font-size', '10px')
+    .style('font-size', '9px')
     .style('fill', '#666')
     .text(label);
 }

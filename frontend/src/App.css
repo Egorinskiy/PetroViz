@@ -7,6 +7,11 @@
 
 .App {
   padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* ============================================================================
@@ -196,7 +201,13 @@
    ============================================================================ */
 
 .chart-wrapper {
+  flex: 0 1 auto;
+  max-height: 100%;
+  min-height: 0;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .initial-loading {
@@ -261,12 +272,18 @@
   display: flex;
   gap: var(--space-3);
   margin-top: var(--space-2);
-  min-height: calc(100vh - 100px);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .main-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .wells-sidebar {
@@ -1152,7 +1169,7 @@
   flex-grow: 0;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 120px);
+  height: 100%; /* вместо max-height */
 }
 
 .resizable-sidebar__content {

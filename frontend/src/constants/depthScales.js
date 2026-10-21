@@ -10,7 +10,7 @@ export const DEPTH_SCALES = {
 };
 
 export const DEFAULT_SCALE = 'full';
-export const FULL_SCALE_HEIGHT = 720;
+export const FULL_SCALE_HEIGHT = 900; // было 720
 export const MIN_CANVAS_HEIGHT = 200;
 export const MAX_CANVAS_HEIGHT = 40000;
 
