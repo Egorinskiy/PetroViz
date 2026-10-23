@@ -41,8 +41,15 @@ function rewritePydanticMsg(msg, type) {
     return 'Слишком длинное значение';
   }
   if (type === 'value_error') {
-    // Общие value_error — вернуть исходное (оно обычно информативное)
     return msg;
+  }
+  // UUID-валидация (например, ID скважины = null)
+  if (
+    type === 'uuid_parsing' ||
+    type === 'uuid_type' ||
+    lower.includes('valid uuid')
+  ) {
+    return 'не задан или некорректен';
   }
   // Fallback — возвращаем как есть
   return msg;

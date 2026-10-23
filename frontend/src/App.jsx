@@ -19,6 +19,7 @@ import { AdminRoute } from './components/AdminRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { UserMenu } from './components/UserMenu';
 import { ErrorModal } from './components/ErrorModal';
+import { ExportLasModal } from './components/ExportLasModal';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -71,6 +72,14 @@ function MainPage() {
   const padState = usePadState();
   const [restoreBadge, setRestoreBadge] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
+
+  // B42: экспорт в LAS
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  // B42: список сохранённых для экспорта (загружаем по запросу)
+  const [savedForExport, setSavedForExport] = useState([]);
+  const [exportSaving, setExportSaving] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
 
   const debounceRef = useRef(null);
 
@@ -125,6 +134,36 @@ function MainPage() {
   }, [gridStep]);
 
   const handleToggleCurves = () => setCurvesVisible((v) => !v);
+
+  // B42: скачать LAS
+  const handleDownloadLas = async (computationIds, includeSource = true) => {
+    if (!activeWellId) return;
+    setExportSaving(true);
+    setExportError(null);
+    try {
+      const { blob, filename } = await computationsApi.exportLas(
+        activeWellId,
+        computationIds,
+        includeSource
+      );
+
+      // Скачиваем через временный <a download>
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportModalOpen(false);
+    } catch (err) {
+      setExportError(extractErrorMessage(err, 'Не удалось экспортировать LAS'));
+    } finally {
+      setExportSaving(false);
+    }
+  };
 
   // B29: сохранить текущий снимок планшета
   const handleSavePad = async () => {
@@ -319,9 +358,25 @@ function MainPage() {
         maxDepth={activeWell?.stop_depth ?? null}
         depthRange={depthRange}
         onDepthRangeChange={setDepthRange}
-        onSavePad={handleSavePad}
+        onSavePad={activeWellId ? handleSavePad : null}
         saveFlash={saveFlash}
         restoreBadge={restoreBadge}
+        onExportLas={
+          activeWellId
+            ? async () => {
+                setExportError(null);
+                try {
+                  const items = await computationsApi.listForWell(activeWellId);
+                  setSavedForExport(items);
+                  setExportModalOpen(true);
+                } catch (err) {
+                  setErrorMessage(
+                    extractErrorMessage(err, 'Не удалось загрузить расчёты')
+                  );
+                }
+              }
+            : null
+        }
       />
 
       <div className="main-layout">
@@ -477,6 +532,17 @@ function MainPage() {
           </ResizableSidebar>
         )}
       </div>
+
+      {/* B42: экспорт в LAS */}
+      {exportModalOpen && (
+        <ExportLasModal
+          items={savedForExport}
+          onCancel={() => !exportSaving && setExportModalOpen(false)}
+          onConfirm={handleDownloadLas}
+          saving={exportSaving}
+          error={exportError}
+        />
+      )}
 
       {/* B36: стилизованный диалог ошибки вместо window.alert */}
       <ErrorModal
