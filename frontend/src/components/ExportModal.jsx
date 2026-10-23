@@ -2,15 +2,7 @@ import React, { useState } from 'react';
 import { DownloadIcon } from './Icons';
 
 /**
- * Универсальная модалка экспорта (LAS или CSV).
- *
- * Props:
- *   format   — 'las' | 'csv'
- *   items    — список сохранённых расчётов
- *   onCancel — отмена
- *   onConfirm(computationIds, includeSourceCurves) — экспорт
- *   saving   — блокирует кнопки
- *   error    — текст ошибки
+ * Универсальная модалка экспорта (LAS, CSV или PDF).
  */
 export function ExportModal({
   format = 'las',
@@ -20,14 +12,18 @@ export function ExportModal({
   saving = false,
   error = null,
 }) {
+  // ЗАЩИТА: если items не массив, делаем его пустым массивом
+  const safeItems = Array.isArray(items) ? items : [];
+
   const [selected, setSelected] = useState(
-    () => new Set(items.map((i) => i.id))
+    () => new Set(safeItems.map((i) => i.id))
   );
   const [includeSource, setIncludeSource] = useState(true);
 
   const isCsv = format === 'csv';
-  const formatLabel = isCsv ? 'CSV' : 'LAS';
-  const ext = isCsv ? '.csv' : '.las';
+  const isPdf = format === 'pdf';
+  const formatLabel = isPdf ? 'PDF' : isCsv ? 'CSV' : 'LAS';
+  const ext = isPdf ? '.pdf' : isCsv ? '.csv' : '.las';
 
   const toggle = (id) => {
     setSelected((prev) => {
@@ -39,12 +35,14 @@ export function ExportModal({
   };
 
   const toggleAll = () => {
-    if (selected.size === items.length) setSelected(new Set());
-    else setSelected(new Set(items.map((i) => i.id)));
+    if (selected.size === safeItems.length) setSelected(new Set());
+    else setSelected(new Set(safeItems.map((i) => i.id)));
   };
 
-  const allChecked = items.length > 0 && selected.size === items.length;
-  const canDownload = includeSource || selected.size > 0;
+  const allChecked = safeItems.length > 0 && selected.size === safeItems.length;
+
+  // Для PDF скачивание всегда доступно, для остальных — только если что-то выбрано
+  const canDownload = isPdf ? true : includeSource || selected.size > 0;
 
   return (
     <div className="modal-overlay" onClick={saving ? undefined : onCancel}>
@@ -56,131 +54,162 @@ export function ExportModal({
         <div className="modal__header">Экспорт в {formatLabel}</div>
 
         <div className="modal__body">
-          <p
-            className="text-sm text-muted"
-            style={{ marginTop: 0, marginBottom: 12 }}
-          >
-            {isCsv ? (
-              <>
-                Экспортируется: {includeSource && <><strong>исходные кривые</strong> + </>}
-                <strong>выбранные расчёты</strong> в CSV (UTF-8, разделитель
-                «запятая»). Откроется в Excel, pandas, R.
-              </>
-            ) : (
-              <>
-                Экспортируется: {includeSource && <><strong>исходные кривые</strong> + </>}
-                <strong>выбранные расчёты</strong>. Файл откроется в Techlog,
-                Geolog, IP.
-              </>
-            )}
-          </p>
-
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 10px',
-              marginBottom: 12,
-              background: 'var(--color-bg-subtle)',
-              border: '1px solid var(--color-border-light)',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              fontSize: 12,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={includeSource}
-              onChange={(e) => setIncludeSource(e.target.checked)}
-            />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>Включать исходные кривые</div>
-              <div className="text-xs text-muted">
-                {includeSource
-                  ? 'Все кривые из LAS + расчёты'
-                  : 'Только DEPTH + выбранные расчёты'}
-              </div>
-            </div>
-          </label>
-
-          {items.length === 0 ? (
-            <div className="text-sm text-muted" style={{ padding: '12px 0' }}>
-              Нет сохранённых расчётов — экспорт только{' '}
-              {includeSource ? 'исходных кривых' : 'DEPT (пустой файл)'}.
+          {isPdf ? (
+            <div
+              className="text-sm text-muted"
+              style={{ marginTop: 0, marginBottom: 12 }}
+            >
+              Экспортируется <strong>текущий вид планшета</strong> (только
+              видимые кривые и заданный диапазон глубин). Отчёт сохраняется в
+              векторном формате 1:1 с вашим экраном.
             </div>
           ) : (
+            <div
+              className="text-sm text-muted"
+              style={{ marginTop: 0, marginBottom: 12 }}
+            >
+              {isCsv ? (
+                <>
+                  Экспортируется:{' '}
+                  {includeSource && (
+                    <>
+                      <strong>исходные кривые</strong> +{' '}
+                    </>
+                  )}
+                  <strong>выбранные расчёты</strong> в CSV (UTF-8, разделитель
+                  «запятая»). Откроется в Excel, pandas, R.
+                </>
+              ) : (
+                <>
+                  Экспортируется:{' '}
+                  {includeSource && (
+                    <>
+                      <strong>исходные кривые</strong> +{' '}
+                    </>
+                  )}
+                  <strong>выбранные расчёты</strong>. Файл откроется в Techlog,
+                  Geolog, IP.
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Скрываем настройки и список для PDF */}
+          {!isPdf && (
             <>
-              <div
+              <label
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  padding: '6px 0',
-                  borderBottom: '1px solid var(--color-border-light)',
-                  marginBottom: 4,
+                  gap: 8,
+                  padding: '8px 10px',
+                  marginBottom: 12,
+                  background: 'var(--color-bg-subtle)',
+                  border: '1px solid var(--color-border-light)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  fontSize: 12,
                 }}
               >
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: 12,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={allChecked}
-                    onChange={toggleAll}
-                  />
-                  Выбрать все ({items.length})
-                </label>
-                <span className="text-xs text-muted">
-                  Выбрано: {selected.size}
-                </span>
-              </div>
+                <input
+                  type="checkbox"
+                  checked={includeSource}
+                  onChange={(e) => setIncludeSource(e.target.checked)}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>
+                    Включать исходные кривые
+                  </div>
+                  <div className="text-xs text-muted">
+                    {includeSource
+                      ? 'Все кривые из LAS + расчёты'
+                      : 'Только DEPTH + выбранные расчёты'}
+                  </div>
+                </div>
+              </label>
 
-              <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-                {items.map((item) => (
-                  <label
-                    key={item.id}
+              {safeItems.length === 0 ? (
+                <div
+                  className="text-sm text-muted"
+                  style={{ padding: '12px 0' }}
+                >
+                  Нет сохранённых расчётов — экспорт только{' '}
+                  {includeSource ? 'исходных кривых' : 'DEPT (пустой файл)'}.
+                </div>
+              ) : (
+                <>
+                  <div
                     style={{
                       display: 'flex',
+                      justifyContent: 'space-between',
                       alignItems: 'center',
-                      gap: 8,
-                      padding: '5px 4px',
-                      borderBottom: '1px solid #f0f0f0',
-                      cursor: 'pointer',
-                      fontSize: 12,
+                      padding: '6px 0',
+                      borderBottom: '1px solid var(--color-border-light)',
+                      marginBottom: 4,
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(item.id)}
-                      onChange={() => toggle(item.id)}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600 }}>
-                        {item.output_mnemonic}
-                      </div>
-                      <div
-                        className="text-xs text-muted"
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        fontSize: 12,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={allChecked}
+                        onChange={toggleAll}
+                      />
+                      Выбрать все ({safeItems.length})
+                    </label>
+                    <span className="text-xs text-muted">
+                      Выбрано: {selected.size}
+                    </span>
+                  </div>
+
+                  <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+                    {safeItems.map((item) => (
+                      <label
+                        key={item.id}
                         style={{
-                          fontFamily: 'var(--font-mono)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '5px 4px',
+                          borderBottom: '1px solid #f0f0f0',
+                          cursor: 'pointer',
+                          fontSize: 12,
                         }}
                       >
-                        {item.method}
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(item.id)}
+                          onChange={() => toggle(item.id)}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600 }}>
+                            {item.output_mnemonic}
+                          </div>
+                          <div
+                            className="text-xs text-muted"
+                            style={{
+                              fontFamily: 'var(--font-mono)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {item.method}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -192,8 +221,8 @@ export function ExportModal({
 
           {!canDownload && (
             <div className="banner banner--warning" style={{ marginTop: 10 }}>
-              Ничего не выбрано. Включите исходные кривые или отметьте
-              хотя бы один расчёт.
+              Ничего не выбрано. Включите исходные кривые или отметьте хотя бы
+              один расчёт.
             </div>
           )}
         </div>
@@ -210,7 +239,9 @@ export function ExportModal({
           <button
             type="button"
             className="btn btn--primary"
-            onClick={() => onConfirm(Array.from(selected), includeSource)}
+            onClick={() =>
+              onConfirm(isPdf ? [] : Array.from(selected), includeSource)
+            }
             disabled={saving || !canDownload}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >

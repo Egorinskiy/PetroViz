@@ -86,6 +86,7 @@ const WellLogViewer = ({
   gridStep = 'auto',
   topDepth = null,
   bottomDepth = null,
+  onSizeChange = null,
 }) => {
   const svgRef = useRef(null);
 
@@ -242,6 +243,9 @@ const WellLogViewer = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
     svg.attr('width', totalWidth).attr('height', totalHeight);
+
+    // B45: сообщаем размер SVG наверх — для 1:1 PDF-экспорта
+    if (onSizeChange) onSizeChange(totalWidth, totalHeight);
 
     const g = svg
       .append('g')
@@ -411,7 +415,7 @@ const WellLogViewer = ({
         .attr('stroke-width', 1)
         .attr('shape-rendering', 'crispEdges');
     }
-  }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, fluidZones, savedTracks, gridStep, topDepth, bottomDepth]);
+  }, [wellData, curvesToPlot, units, scale, previewData, porosityExpress, fluidZones, savedTracks, gridStep, topDepth, bottomDepth, onSizeChange]);
 
   return (
     <div style={{
@@ -432,7 +436,9 @@ const WellLogViewer = ({
           background: '#fafafa',
         }}
       >
-        <svg ref={svgRef} />
+        <svg ref={svgRef}
+        id="well-log-svg"
+        />
       </div>
     </div>
   );
@@ -737,16 +743,13 @@ const GROUP_COLORS = {
 function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, options) {
   const { type, label } = options;
 
-  // B41: заголовок трека сверху
-  const titleColor =
-    type === 'vshale' ? '#1B5E20' : type === 'porosity' ? '#E65100' : '#C62828';
   g.append('text')
     .attr('x', xOffset + trackWidth / 2)
     .attr('y', -22)
     .attr('text-anchor', 'middle')
     .style('font-size', '11px')
     .style('font-weight', 'bold')
-    .style('fill', titleColor)
+    .style('fill', type === 'vshale' ? '#1B5E20' : type === 'porosity' ? '#E65100' : '#C62828')
     .style('letter-spacing', '0.3px')
     .text(label);
 
@@ -756,26 +759,20 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
   } else if (type === 'porosity') {
     x = d3.scaleLinear().domain([0, 0.6]).range([xOffset, xOffset + trackWidth]);
   } else {
-    const allVals = group.flatMap(([, item]) =>
-      (item.values || []).filter((v) => v != null && isFinite(v))
-    );
+    const allVals = group.flatMap(([, item]) => (item.values || []).filter((v) => v != null && isFinite(v)));
     if (allVals.length === 0) return;
     const extent = d3.extent(allVals);
     x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
   }
 
-  // Ось снизу
   g.append('g')
     .attr('transform', `translate(0,${innerHeight})`)
     .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
     .selectAll('text').style('font-size', '9px');
 
-  // Ось сверху (подписи + сетка)
   const topG = g.append('g')
     .attr('transform', 'translate(0,0)')
-    .call(
-      d3.axisTop(x).ticks(5).tickFormat(d3.format('.1f')).tickSize(-innerHeight)
-    );
+    .call(d3.axisTop(x).ticks(5).tickFormat(d3.format('.1f')).tickSize(-innerHeight));
   topG.selectAll('text').style('font-size', '9px');
   topG.selectAll('.tick line').style('stroke', '#e0e0e0');
   topG.selectAll('.domain').remove();
@@ -809,10 +806,11 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
     const dashArray = isSaved ? '4,2' : 'none';
     const strokeWidth = isExternal ? 1.8 : isSaved ? 1.2 : 2.0;
 
+    // ЗАЩИТА ОТ NaN
     const line = d3.line()
-      .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
-      .x((d) => x(d))
-      .y((_, i) => y(trackDepth[i]));
+      .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null && isFinite(trackDepth[i]))
+      .x((d) => isFinite(d) ? x(d) : xOffset)
+      .y((_, i) => isFinite(trackDepth[i]) ? y(trackDepth[i]) : 0);
 
     g.append('path')
       .datum(values)
@@ -823,6 +821,8 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
       .attr('d', line)
       .attr('clip-path', clipId);
   });
+
+  // ... (остальной код для легенды оставь без изменений)
 
   const legendY = innerHeight + 32;
   const itemWidth = Math.min(45, trackWidth / Math.max(group.length, 1));

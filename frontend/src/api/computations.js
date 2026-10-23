@@ -1,85 +1,53 @@
 import { apiClient } from './axiosClient';
 
 export const computationsApi = {
-  /**
-   * Список доступных петрофизических методов.
-   * Возвращает { methods: MethodSpec[] }
-   */
-  listMethods: () =>
-    apiClient.get('/computations/methods').then((r) => r.data),
+  listMethods: async () => {
+    const response = await apiClient.get('/computations/methods');
+    return response.data;
+  },
 
-  /**
-   * Расчёт без сохранения — для live-preview.
-   * @param {string} wellId
-   * @param {string} method - ключ метода
-   * @param {Object} curveMapping - { role: mnemonic }
-   * @param {Object} params - { paramName: value }
-   * @returns {Promise<{depth: number[], curves: Object, warnings: string[]}>}
-   */
-  preview: (wellId, method, curveMapping, params, computationRefs) =>
-    apiClient
-      .post('/computations/preview', {
-        well_id: wellId,
-        method,
-        curve_mapping: curveMapping,
-        params,
-        computation_refs: computationRefs || {},
-      })
-      .then((r) => r.data),
+  preview: async (wellId, method, params, curveMapping = {}, computationRefs = {}, fluidZones = null) => {
+    const response = await apiClient.post('/computations/preview', {
+      well_id: wellId,
+      method,
+      params,
+      curve_mapping: curveMapping,
+      computation_refs: computationRefs,
+      fluid_zones: fluidZones,
+    });
+    return response.data;
+  },
 
-  /**
-   * Возвращает кривую из LAS в формате preview — без расчёта.
-   * Используется для B13 — внешние кривые в Express-пористости.
-   * @param {string} wellId
-   * @param {string} mnemonic - имя кривой из скважины
-   * @returns {Promise<{mnemonic, unit, depth, values}>}
-   */
-  externalCurve: (wellId, mnemonic) =>
-    apiClient
-      .post('/computations/external-curve', {
-        well_id: wellId,
-        mnemonic,
-      })
-      .then((r) => r.data),
+  save: async (wellId, payload) => {
+    const response = await apiClient.post(`/wells/${wellId}/computations`, payload);
+    return response.data;
+  },
 
-  /**
-   * Сохраняет текущий расчёт (backend пересчитывает preview и сохраняет).
-   * @returns {Promise<ComputationMeta>}
-   */
-  save: (wellId, payload) =>
-    apiClient
-      .post(`/wells/${wellId}/computations`, payload)
-      .then((r) => r.data),
+  listForWell: async (wellId) => {
+    const response = await apiClient.get(`/wells/${wellId}/computations`);
+    return response.data;
+  },
 
-  /**
-   * Список сохранённых расчётов для скважины.
-   * @returns {Promise<ComputationMeta[]>}
-   */
-  listForWell: (wellId) =>
-    apiClient
-      .get(`/wells/${wellId}/computations`)
-      .then((r) => r.data.items),
+  getData: async (compId) => {
+    const response = await apiClient.get(`/computations/${compId}`);
+    return response.data;
+  },
 
-  /**
-   * Полные данные сохранённого расчёта.
-   * @returns {Promise<{id, output_mnemonic, method, depth, values}>}
-   */
-  getData: (compId) =>
-    apiClient.get(`/computations/${compId}`).then((r) => r.data),
+  delete: async (compId) => {
+    await apiClient.delete(`/computations/${compId}`);
+  },
 
-  /**
-   * Удаляет сохранённый расчёт.
-   */
-  remove: (compId) =>
-    apiClient.delete(`/computations/${compId}`),
+  getExternalCurve: async (wellId, curveName) => {
+    const response = await apiClient.post('/computations/external-curve', {
+      well_id: wellId,
+      curve_name: curveName,
+    });
+    return response.data;
+  },
 
-  /**
-   * Экспорт скважины + выбранных расчётов в LAS.
-   * Возвращает { blob, filename }.
-   */
   exportLas: async (wellId, computationIds, includeSourceCurves = true) => {
     const response = await apiClient.post(
-      `/wells/${wellId}/export-las`,
+      `/wells/${wellId}/export-las`, // <--- ИМЕННО -las
       {
         computations: computationIds,
         include_source_curves: includeSourceCurves,
@@ -87,7 +55,6 @@ export const computationsApi = {
       { responseType: 'blob' }
     );
 
-    // Достаём имя файла из Content-Disposition
     const disposition = response.headers['content-disposition'] || '';
     const match = disposition.match(/filename="?([^"]+)"?/);
     const filename = match?.[1] || `well_${wellId.slice(0, 8)}.las`;
@@ -95,13 +62,9 @@ export const computationsApi = {
     return { blob: response.data, filename };
   },
 
-    /**
-   * Экспорт в CSV (UTF-8 BOM, разделитель ',').
-   * Возвращает { blob, filename }.
-   */
   exportCsv: async (wellId, computationIds, includeSourceCurves = true) => {
     const response = await apiClient.post(
-      `/wells/${wellId}/export-csv`,
+      `/wells/${wellId}/export-csv`, // <--- ИМЕННО -csv
       {
         computations: computationIds,
         include_source_curves: includeSourceCurves,
@@ -115,5 +78,18 @@ export const computationsApi = {
 
     return { blob: response.data, filename };
   },
-};
 
+  exportPdf: async (wellId, svgString) => {
+    const response = await apiClient.post(
+      `/wells/${wellId}/export-pdf`,
+      { svg_content: svgString },
+      { responseType: 'blob' }
+    );
+
+    const disposition = response.headers['content-disposition'] || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match?.[1] || `well_${wellId.slice(0, 8)}.pdf`;
+
+    return { blob: response.data, filename };
+  },
+};

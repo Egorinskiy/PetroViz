@@ -37,6 +37,12 @@
 
 **Express-пористость:** вкладка с 4 методами + fluid zones + 6+ кросс-плотами + статистикой. Возможность подключать **внешние кривые** (ЯМК, керн) для сравнения с расчётной пористостью.
 
+### Экспорт данных
+
+- **LAS 2.0**: Выгрузка исходных кривых и сохранённых расчётов. Полная поддержка кириллицы (UTF-8).
+- **CSV**: Выгрузка таблицы (UTF-8 BOM для корректного открытия в Excel).
+- **PDF**: Генерация векторного отчета 1:1 с планшетом (WYSIWYG). Шапка с логотипом и метаданными скважины.
+
 ### Пользователи и доступы
 
 - JWT-аутентификация (access + refresh)
@@ -59,7 +65,7 @@
 
 | Слой | Технологии |
 |---|---|
-| Backend | Python 3.14, FastAPI, SQLAlchemy 2.0, Alembic, lasio, pandas, numpy, pyarrow |
+| Backend | Python 3.14, FastAPI, SQLAlchemy 2.0, Alembic, lasio, pandas, numpy, pyarrow, pdf-io, pypdf |
 | БД | PostgreSQL 18 + parquet (кривые) |
 | Frontend | React 18, Vite, d3.js, axios, react-router-dom |
 | Auth | JWT (access + refresh), bcrypt, RBAC |
@@ -187,6 +193,9 @@ pytest tests/ -v
 | GET    | /api/wells/{id}/computations | Список сохранённых |
 | GET    | /api/computations/{id} | Данные сохранённого |
 | DELETE | /api/computations/{id} | Удалить |
+| POST   | /api/wells/{id}/export-las | Экспорт в LAS |
+| POST   | /api/wells/{id}/export-csv | Экспорт в CSV |
+| POST   | /api/wells/{id}/export-pdf | Экспорт в PDF (WYSIWYG) |
 
 ### Admin
 
@@ -212,15 +221,15 @@ pytest tests/ -v
 - Сохранение расчётов + source_refs
 - Express-пористость: crossplots + stats + внешние кривые
 - Регулируемые панели (ResizableSidebar)
+- **Экспорт LAS / CSV / PDF (WYSIWYG)**
+- **Физически корректные масштабы глубины**
 
 ### В работе
 
-- USER_GUIDE.md + tooltips
 - Мобильная адаптация
 
 ### Запланировано
 
-- Экспорт CSV / PDF
 - Деплой (VPS + Nginx + Let's Encrypt + CI/CD)
 - Shaly correction (PHIE через Vsh)
 

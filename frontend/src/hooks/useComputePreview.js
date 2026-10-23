@@ -95,9 +95,10 @@ export function useComputePreview({ wellId, enabled }) {
       const data = await computationsApi.preview(
         wellId,
         selectedMethodKey,
-        curveMapping,
         params,
-        computationRefs
+        curveMapping,
+        computationRefs,
+        null
       );
       // B33: добавляем category метода в previewData — для группировки треков
       const methodCategory = methods.find(

@@ -16,6 +16,7 @@ from ..computation.pad_schemas import (
     PadStateSaveRequest, PadStateResponse,
     ExportLasRequest,
 )
+from ..export.pdf_builder import build_well_pdf
 from ..repositories.pad_state_repository import PadStateRepository
 from ..computation.computation_schemas import (
     SaveComputationRequest,
@@ -543,7 +544,11 @@ async def export_well_las(
     tmp_fd, tmp_path = tempfile.mkstemp(suffix='.las')
     os.close(tmp_fd)
     try:
-        las.write(tmp_path, version=2.0)
+        # Открываем файл для записи с явной кодировкой UTF-8
+        with open(tmp_path, 'w', encoding='utf-8') as f:
+            las.write(f, version=2.0)  # Передаем файловый объект, а не путь
+
+        # Читаем обратно
         with open(tmp_path, 'r', encoding='utf-8') as f:
             content = f.read()
     finally:
@@ -671,4 +676,66 @@ async def export_well_csv(
             "Content-Disposition": f'attachment; filename="{filename}"',
             "X-Computations-Added": str(len(added_comp_ids)),
         },
+    )
+
+
+# ============================================================================
+# B45: экспорт в PDF
+# ============================================================================
+
+@router.post("/wells/{well_id}/export-pdf")
+async def export_well_pdf(
+    well_id: _uuid.UUID,
+    data: ExportLasRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Генерирует PDF-отчёт 1:1 с размером SVG-планшета.
+
+    Размер страницы = (svg_width, svg_height) из запроса, в pt (×0.75).
+    Сверху шапка в стиле login, ниже — весь планшет (вектор).
+    """
+    well_repo = WellRepository(session)
+    well_result = await well_repo.get(well_id, user_id=current_user.id)
+    if well_result is None:
+        from ..exceptions import WellNotFoundError
+        raise WellNotFoundError(f"Well '{well_id}' not found")
+
+    well, df = well_result
+
+    comp_repo = ComputationRepository(session)
+    computations = []
+    comp_data = {}
+    for comp_id_str in (data.computations or []):
+        try:
+            comp_uuid = _uuid.UUID(comp_id_str)
+        except ValueError:
+            continue
+        comp = await comp_repo.get(comp_uuid)
+        if comp is None or comp.well_id != well.id:
+            continue
+        ref_depth, ref_values = await comp_repo.load_data(comp)
+        computations.append(comp)
+        comp_data[str(comp.id)] = (ref_depth, ref_values)
+
+    try:
+        pdf_bytes = build_well_pdf(
+            well, df, computations, comp_data,
+            svg_content=data.svg_content
+        )
+    except Exception as e:
+        logger.exception("PDF build failed for well %s", well.id)
+        from ..exceptions import PetroVizError
+        raise PetroVizError(f"Не удалось сгенерировать PDF: {e}")
+
+    raw_name = well.well_name or f"well_{well.id.hex[:8]}"
+    safe_name = re.sub(r'[^\w\-]', '_', raw_name)[:40]
+    date_str = datetime.now().strftime('%Y%m%d')
+    filename = f"{safe_name}_report_{date_str}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

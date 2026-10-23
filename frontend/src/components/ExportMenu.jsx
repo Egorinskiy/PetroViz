@@ -68,6 +68,16 @@ export function ExportMenu({ onExport }) {
               CSV (Excel, pandas, R)
             </span>
           </button>
+          <button
+            type="button"
+            className="export-menu__item"
+            onClick={() => pick('pdf')}
+          >
+            <span className="export-menu__ext">.pdf</span>
+            <span className="export-menu__label">
+              PDF (отчёт 1:1 с планшетом)
+            </span>
+          </button>
         </div>
       )}
     </div>

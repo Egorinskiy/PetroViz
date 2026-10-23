@@ -73,9 +73,12 @@ function MainPage() {
   const [restoreBadge, setRestoreBadge] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
 
-  // B42/B44: экспорт (LAS или CSV)
+  // B45: размер SVG-планшета (для 1:1 PDF)
+  const [svgSize, setSvgSize] = useState({ width: 900, height: 1200 });
+
+  // B42/B44: экспорт (LAS / CSV / PDF)
   const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportFormat, setExportFormat] = useState('las'); // 'las' | 'csv'
+  const [exportFormat, setExportFormat] = useState('las'); // 'las' | 'csv' | 'pdf'
   const [exportSaving, setExportSaving] = useState(false);
   const [exportError, setExportError] = useState(null);
   // B42: список сохранённых для экспорта (загружаем по запросу)
@@ -136,22 +139,44 @@ function MainPage() {
 
   const handleToggleCurves = () => setCurvesVisible((v) => !v);
 
-  // B42/B44: скачать экспорт (LAS или CSV)
+  // B42/B44: скачать экспорт (LAS, CSV или PDF)
   const handleDownloadExport = async (computationIds, includeSource = true) => {
     if (!activeWellId) return;
     setExportSaving(true);
     setExportError(null);
     try {
-      const fn =
-        exportFormat === 'csv'
-          ? computationsApi.exportCsv
-          : computationsApi.exportLas;
+      let blob, filename;
 
-      const { blob, filename } = await fn(
-        activeWellId,
-        computationIds,
-        includeSource
-      );
+      if (exportFormat === 'pdf') {
+        const svgElement = document.getElementById('well-log-svg');
+        if (!svgElement) throw new Error('Планшет не найден');
+
+        const clone = svgElement.cloneNode(true);
+        const w = clone.getAttribute('width');
+        const h = clone.getAttribute('height');
+
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        if (w && h) {
+          clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        }
+
+        // Просто сериализуем в строку, cairosvg сам всё поймет
+        const svgString = new XMLSerializer().serializeToString(clone);
+
+        ({ blob, filename } = await computationsApi.exportPdf(activeWellId, svgString));
+      } else if (exportFormat === 'csv') {
+        ({ blob, filename } = await computationsApi.exportCsv(
+          activeWellId,
+          computationIds,
+          includeSource
+        ));
+      } else {
+        ({ blob, filename } = await computationsApi.exportLas(
+          activeWellId,
+          computationIds,
+          includeSource
+        ));
+      }
 
       // Скачиваем через временный <a download>
       const url = URL.createObjectURL(blob);
@@ -378,8 +403,10 @@ function MainPage() {
                 setExportFormat(format);
                 setExportError(null);
                 try {
-                  const items = await computationsApi.listForWell(activeWellId);
-                  setSavedForExport(items);
+                  const res = await computationsApi.listForWell(activeWellId);
+                  // Бэкенд возвращает { items: [...] }, достаем массив
+                  const list = res?.items || res?.data || (Array.isArray(res) ? res : []);
+                  setSavedForExport(list);
                   setExportModalOpen(true);
                 } catch (err) {
                   setErrorMessage(
@@ -470,6 +497,11 @@ function MainPage() {
                     gridStep={gridStep}
                     topDepth={depthRange?.top ?? null}
                     bottomDepth={depthRange?.bottom ?? null}
+                    onSizeChange={(w, h) => {
+                      if (w !== svgSize.width || h !== svgSize.height) {
+                        setSvgSize({ width: w, height: h });
+                      }
+                    }}
                   />
                   {/* Первая загрузка скважины — полноэкранный overlay */}
                   {dataLoading && isInitialLoad && (
@@ -545,7 +577,7 @@ function MainPage() {
         )}
       </div>
 
-      {/* B42/B44: экспорт (LAS или CSV) */}
+      {/* B42/B44: экспорт (LAS, CSV, PDF) */}
       {exportModalOpen && (
         <ExportModal
           format={exportFormat}
