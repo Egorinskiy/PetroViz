@@ -14,12 +14,20 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 logger = logging.getLogger("petroviz.export.pdf")
 
+# --- Инициализация шрифтов (Кириллица) ---
 try:
-    pdfmetrics.registerFont(TTFont('Arial', "C:\\Windows\\Fonts\\arial.ttf"))
-    pdfmetrics.registerFont(TTFont('Arial-Bold', "C:\\Windows\\Fonts\\arialbd.ttf"))
-    FONT, FONT_BOLD = 'Arial', 'Arial-Bold'
+    # Сначала ищем шрифты для Linux (Docker)
+    pdfmetrics.registerFont(TTFont('DejaVuSans', "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+    pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
+    FONT, FONT_BOLD = 'DejaVuSans', 'DejaVuSans-Bold'
 except Exception:
-    FONT, FONT_BOLD = 'Helvetica', 'Helvetica-Bold'
+    # Если не нашли (например, запускаем локально на Windows) — берем Arial
+    try:
+        pdfmetrics.registerFont(TTFont('Arial', "C:\\Windows\\Fonts\\arial.ttf"))
+        pdfmetrics.registerFont(TTFont('Arial-Bold', "C:\\Windows\\Fonts\\arialbd.ttf"))
+        FONT, FONT_BOLD = 'Arial', 'Arial-Bold'
+    except Exception:
+        FONT, FONT_BOLD = 'Helvetica', 'Helvetica-Bold'
 
 NAVY, RED_DARK = HexColor('#1A3D5C'), HexColor('#8B2520')
 YELLOW, WHITE = HexColor('#FFD54F'), HexColor('#FFFFFF')

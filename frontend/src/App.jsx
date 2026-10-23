@@ -160,6 +160,13 @@ function MainPage() {
           clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
         }
 
+        // ВНЕДРЯЕМ ШРИФТ ДЛЯ ТЕКСТА В SVG
+        const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        style.textContent = `
+          text { font-family: 'DejaVu Sans', Arial, sans-serif !important; }
+        `;
+        clone.prepend(style);
+
         // Просто сериализуем в строку, cairosvg сам всё поймет
         const svgString = new XMLSerializer().serializeToString(clone);
 
