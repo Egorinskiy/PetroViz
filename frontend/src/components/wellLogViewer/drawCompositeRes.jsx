@@ -56,6 +56,17 @@ export function drawCompositeRes(
     .domain([1, 500])
     .range([xOffset, xOffset + trackWidth]);
 
+  // B41: заголовок трека сверху
+  g.append('text')
+    .attr('x', xOffset + trackWidth / 2)
+    .attr('y', -22)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '11px')
+    .style('font-weight', 'bold')
+    .style('fill', '#333')
+    .style('letter-spacing', '0.3px')
+    .text(r0Data ? 'RES + R0' : 'RES');
+
   // Ось снизу
   const logAxis = d3.axisBottom(x).ticks(3, '~g');
   g.append('g')
@@ -65,12 +76,21 @@ export function drawCompositeRes(
     .style('font-size', '9px')
     .style('fill', '#333');
 
-  // Вертикальная сетка
-  g.append('g')
-    .attr('transform', `translate(0,0)`)
-    .call(d3.axisTop(x).ticks(3, '~g').tickSize(-innerHeight).tickFormat(''))
-    .selectAll('line')
+  // Ось X сверху (log labels + grid)
+  const topG = g.append('g')
+    .attr('transform', 'translate(0,0)')
+    .call(
+      d3.axisTop(x).ticks(3, '~g').tickSize(-innerHeight)
+    );
+
+  topG.selectAll('text')
+    .style('font-size', '9px')
+    .style('fill', '#333');
+
+  topG.selectAll('.tick line')
     .style('stroke', '#e0e0e0');
+
+  topG.selectAll('.domain').remove();
 
   // Кривые УЭС
   track.curves.forEach((curve, i) => {

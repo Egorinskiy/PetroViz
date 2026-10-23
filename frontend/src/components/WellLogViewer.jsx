@@ -42,7 +42,6 @@ const RT_PREFIXES = [
 
 function _isRtCurve(name) {
   const u = String(name).toUpperCase();
-  // Не путать с RHOB (плотность)
   if (u.startsWith('RH')) return false;
   return RT_PREFIXES.some((p) => u.startsWith(p));
 }
@@ -53,11 +52,7 @@ function _hasRtCurve(curvesToPlot) {
 
 /**
  * Приводит расчётную кривую к тем же глубинам, что и wellData (прореженные).
- * Использует nearest-index: для каждой глубины из wellDepths находит
- * ближайший по значению индекс в srcDepths.
- *
- * Нужен для того, чтобы расчётные кривые (preview / express / saved) имели
- * ту же детализацию, что и исходные (pixel_width от масштаба).
+ * Использует nearest-index.
  */
 function _mapToWellDepths(srcDepths, srcValues, wellDepths) {
   if (!srcDepths || !srcValues || !wellDepths) return [];
@@ -68,7 +63,6 @@ function _mapToWellDepths(srcDepths, srcValues, wellDepths) {
   let j = 0;
   for (let i = 0; i < wellDepths.length; i++) {
     const d = wellDepths[i];
-    // Продвигаем указатель, пока следующая глубина ближе к d
     while (
       j + 1 < n &&
       Math.abs(srcDepths[j + 1] - d) < Math.abs(srcDepths[j] - d)
@@ -102,13 +96,10 @@ const WellLogViewer = ({
 
     // ====================================================================
     // B33: разделяем кривые на специальные (dict) и обычные (array).
-    // Специальные (R0, SW, SWI, NTG, PERM) — одна на mnemonic.
-    // Обычные (VSH*, PHI*, GR, RHOB...) — может быть несколько с одним
-    // mnemonic (например, 3 сохранённых VSH + 1 live VSH).
     // ====================================================================
     const SPECIAL_MNEMONICS = new Set(['R0', 'SW', 'SWI', 'NTG', 'PERM']);
     const specialCurves = {};
-    const regularItems = []; // массив пар [mnemonic, item]
+    const regularItems = [];
 
     // 1. Live preview
     if (previewData?.curves) {
@@ -133,7 +124,7 @@ const WellLogViewer = ({
       }
     }
 
-    // 2. Сохранённые расчёты — БЕЗ дедупликации по mnemonic
+    // 2. Сохранённые расчёты — без дедупликации
     for (const t of (savedTracks || [])) {
       const mnemonic = t.label || t.mnemonic;
       const item = {
@@ -151,41 +142,24 @@ const WellLogViewer = ({
       }
     }
 
-    // Специальные кривые
     const r0Data = specialCurves['R0'] || null;
     const swData = specialCurves['SW'] || null;
     const swiData = specialCurves['SWI'] || null;
     const ntgData = specialCurves['NTG'] || null;
     const permData = specialCurves['PERM'] || null;
 
-    // Производные флаги (были в старом блоке, потерялись в патче)
     const hasSwSwTrack = !!(swData || swiData);
 
-    // Определяем, есть ли composite_res (для R0 overlay)
     const compositeResTrack = tracks.find((t) => t.type === 'composite_res');
     const hasCompositeRes = !!compositeResTrack;
     const r0AsOverlay = !!(r0Data && hasCompositeRes);
 
-    // R0 есть, но нет ни composite_res, ни отдельных RT-кривых → показать заглушку
     const hasRtInPlot = _hasRtCurve(curvesToPlot);
     const showR0Placeholder = !!(r0Data && !r0AsOverlay && !hasRtInPlot);
 
-  // ====================================================================
-    // B33: группировка кривых по категориям
     // ====================================================================
-    // Специальные (отдельные треки — не трогаем):
-    //   SW, SWI → saturationGroup (свой трек с заливками)
-    //   NTG → ntgGroup
-    //   PERM → permGroup
-    //   R0 (overlay) → внутри composite_res
-    //   R0 (placeholder) → заглушка
-    //
-    // Обычные — группируем:
-    //   VSH* → vshaleGroup
-    //   PHI* + express → porosityGroup
-    //   всё остальное → otherGroup
-
-    // B33: группировка обычных кривых по префиксу mnemonic
+    // B33: группировка
+    // ====================================================================
     const vshaleGroup = [];
     const porosityGroup = [];
     const otherGroup = [];
@@ -201,12 +175,9 @@ const WellLogViewer = ({
       }
     }
 
-    // B33: express-пористость добавляем в porosityGroup.
-    // B35: мапим на wellData.depth. Не дублируем live preview, но
-    // сохранённые PHI остаются рядом (live / saved / express — разные слои).
+    // express-пористость
     if (porosityExpress?.curves && porosityExpress?.depth) {
       for (const [mnemonic, curve] of Object.entries(porosityExpress.curves)) {
-        // Пропускаем, если live preview уже дал эту же кривую
         const existsInLive = regularItems.some(
           ([m, it]) => m === mnemonic && !it.isSaved && !it.isExpress
         );
@@ -232,26 +203,18 @@ const WellLogViewer = ({
     }
 
     // ====================================================================
-    // ГЕОМЕТРИЯ: Массив ширин треков
+    // ГЕОМЕТРИЯ
     // ====================================================================
     const trackGap = 6;
     const trackWidths = [];
 
-    // 1. Основные треки из LAS (150)
     tracks.forEach(() => trackWidths.push(150));
-    // 2. Vshale группа (150)
     if (vshaleGroup.length > 0) trackWidths.push(150);
-    // 3. Porosity группа (150) — включает express
     if (porosityGroup.length > 0) trackWidths.push(150);
-    // 4. Other группа (150) — обычно пусто
     if (otherGroup.length > 0) trackWidths.push(150);
-    // 5. R0 placeholder (150)
     if (showR0Placeholder) trackWidths.push(150);
-    // 6. SW/SWI (150)
     if (hasSwSwTrack) trackWidths.push(150);
-    // 7. NTG (40 — узкий)
     if (ntgData) trackWidths.push(40);
-    // 8. PERM (150)
     if (permData) trackWidths.push(150);
 
     const totalTracks = trackWidths.length;
@@ -263,7 +226,6 @@ const WellLogViewer = ({
     }
     const innerWidth = currentX - trackGap;
 
-    // B6: custom диапазон глубин (если задан)
     const fullDepthExtent = d3.extent(wellData.depth);
     const depthExtent = [
       topDepth != null && isFinite(topDepth) ? topDepth : fullDepthExtent[0],
@@ -272,7 +234,8 @@ const WellLogViewer = ({
     const depthRange = depthExtent[1] - depthExtent[0];
     const innerHeight = computeCanvasHeight(scale, depthRange);
 
-    const margin = { top: 15, right: 20, bottom: 60, left: 55 };
+    // margin.top увеличен для подписей оси сверху
+    const margin = { top: 42, right: 20, bottom: 60, left: 55 };
     const totalWidth = innerWidth + margin.left + margin.right;
     const totalHeight = innerHeight + margin.top + margin.bottom;
 
@@ -284,7 +247,7 @@ const WellLogViewer = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // clipPath для каждого трека
+    // clipPath
     const defs = svg.append('defs');
     for (let idx = 0; idx < totalTracks; idx++) {
       defs
@@ -300,7 +263,7 @@ const WellLogViewer = ({
     // Шкала глубины
     const y = d3.scaleLinear().domain(depthExtent).range([0, innerHeight]);
 
-    // B10: шаг сетки
+    // Шаг сетки
     const effectiveStep =
       gridStep === 'auto' || gridStep == null
         ? computeGridStep(scale, depthRange)
@@ -343,19 +306,18 @@ const WellLogViewer = ({
       .text('Глубина (м)');
 
     // ====================================================================
-    // Рисование
+    // РИСОВАНИЕ
     // ====================================================================
-
     let currentIdx = 0;
 
-    // 1. Основные треки каротажа (+ R0 overlay)
+    // 1. Основные треки каротажа
     tracks.forEach((track, i) => {
       const idx = currentIdx++;
       const xOffset = xOffsets[idx];
       const trackW = trackWidths[idx];
       const clipId = `url(#clip-track-${idx})`;
 
-    if (track.type === 'composite_dn') {
+      if (track.type === 'composite_dn') {
         drawCompositeDN(g, track, xOffset, trackW, innerHeight, y, wellData, clipId);
       } else if (track.type === 'composite_res') {
         drawCompositeRes(
@@ -368,7 +330,7 @@ const WellLogViewer = ({
       }
     });
 
-    // 2. Vshale группа
+    // 2. Vshale
     if (vshaleGroup.length > 0) {
       const idx = currentIdx++;
       drawCurveGroup(
@@ -383,7 +345,7 @@ const WellLogViewer = ({
       );
     }
 
-    // 3. Porosity группа (включая express)
+    // 3. Porosity
     if (porosityGroup.length > 0) {
       const idx = currentIdx++;
       drawCurveGroup(
@@ -398,7 +360,7 @@ const WellLogViewer = ({
       );
     }
 
-    // 4. Other группа
+    // 4. Other
     if (otherGroup.length > 0) {
       const idx = currentIdx++;
       drawCurveGroup(
@@ -413,34 +375,31 @@ const WellLogViewer = ({
       );
     }
 
-    // 2.5. R0 placeholder — R0 есть, но не с чем сравнивать
+    // 5. R0 placeholder
     if (showR0Placeholder) {
       const idx = currentIdx++;
       drawR0Placeholder(g, xOffsets[idx], trackWidths[idx], innerHeight);
     }
 
-    // 3. SW/SWI
+    // 6. SW/SWI
     if (hasSwSwTrack) {
       const idx = currentIdx++;
       drawSwSwTrack(g, swData, swiData, xOffsets[idx], trackWidths[idx], innerHeight, y, `url(#clip-track-${idx})`);
     }
 
-    // 4. NTG
+    // 7. NTG
     if (ntgData) {
       const idx = currentIdx++;
       drawNtgTrack(g, ntgData, xOffsets[idx], trackWidths[idx], innerHeight, y, `url(#clip-track-${idx})`);
     }
 
-     // 5. PERM
+    // 8. PERM
     if (permData) {
       const idx = currentIdx++;
       drawPermTrack(g, permData, xOffsets[idx], trackWidths[idx], innerHeight, y, `url(#clip-track-${idx})`);
     }
 
-    // ====================================================================
-    // B40: единые рамки треков — рисуем ПОСЛЕДНИМИ, поверх всех gridlines
-    // и кривых. Это гарантирует одинаковую толщину и цвет.
-    // ====================================================================
+    // B40: единые рамки треков поверх всего
     for (let idx = 0; idx < totalTracks; idx++) {
       g.append('rect')
         .attr('x', xOffsets[idx])
@@ -480,23 +439,43 @@ const WellLogViewer = ({
 };
 
 // ============================================================================
-// Вспомогательные функции отрисовки (с поддержкой динамической ширины)
+// Вспомогательные функции
 // ============================================================================
 
 function drawSwSwTrack(g, swData, swiData, xOffset, trackWidth, innerHeight, y, clipId) {
+  const swLabel = swData && swiData ? 'SW / SWI' : swData ? 'SW' : 'SWI';
+  g.append('text')
+    .attr('x', xOffset + trackWidth / 2)
+    .attr('y', -22)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '11px')
+    .style('font-weight', 'bold')
+    .style('fill', '#333')
+    .style('letter-spacing', '0.3px')
+    .text(swLabel);
+
   const x = d3.scaleLinear()
     .domain([1, 0])
     .range([xOffset, xOffset + trackWidth]);
 
-  g.append('g')
-    .attr('transform', `translate(0,0)`)
-    .call(d3.axisTop(x).tickValues([1, 0.8, 0.6, 0.4, 0.2, 0]).tickSize(-innerHeight).tickFormat(''))
-    .selectAll('line').style('stroke', '#e0e0e0');
-
+  // Ось снизу
   g.append('g')
     .attr('transform', `translate(0,${innerHeight})`)
     .call(d3.axisBottom(x).tickValues([1, 0.8, 0.6, 0.4, 0.2, 0]).tickFormat(d3.format('.1f')))
     .selectAll('text').style('font-size', '9px');
+
+  // Ось сверху (подписи + сетка)
+  const topG = g.append('g')
+    .attr('transform', 'translate(0,0)')
+    .call(
+      d3.axisTop(x)
+        .tickValues([1, 0.8, 0.6, 0.4, 0.2, 0])
+        .tickFormat(d3.format('.1f'))
+        .tickSize(-innerHeight)
+    );
+  topG.selectAll('text').style('font-size', '9px');
+  topG.selectAll('.tick line').style('stroke', '#e0e0e0');
+  topG.selectAll('.domain').remove();
 
   if (swData?.values && swData.values.length > 0) {
     const swFill = d3.area()
@@ -566,16 +545,40 @@ function drawSwSwTrack(g, swData, swiData, xOffset, trackWidth, innerHeight, y, 
 }
 
 function drawNtgTrack(g, ntgData, xOffset, trackWidth, innerHeight, y, clipId) {
+  g.append('text')
+    .attr('x', xOffset + trackWidth / 2)
+    .attr('y', -22)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '11px')
+    .style('font-weight', 'bold')
+    .style('fill', '#F57F17')
+    .style('letter-spacing', '0.3px')
+    .text('NTG');
+
   const x = d3.scaleLinear()
     .domain([0, 1])
     .range([xOffset, xOffset + trackWidth]);
 
+  // Ось снизу
   g.append('g')
     .attr('transform', `translate(0,${innerHeight})`)
     .call(d3.axisBottom(x).tickValues([0, 1]).tickFormat(d3.format('d')))
     .selectAll('text').style('font-size', '9px');
 
-  // Заливка коллекторов (жёлтая)
+  // Ось сверху (подписи + сетка)
+  const topG = g.append('g')
+    .attr('transform', 'translate(0,0)')
+    .call(
+      d3.axisTop(x)
+        .tickValues([0, 1])
+        .tickFormat(d3.format('d'))
+        .tickSize(-innerHeight)
+    );
+  topG.selectAll('text').style('font-size', '9px');
+  topG.selectAll('.tick line').style('stroke', '#e0e0e0');
+  topG.selectAll('.domain').remove();
+
+  // Заливка коллекторов
   const ntgFill = d3.area()
     .x0(() => xOffset)
     .x1((d) => x(d))
@@ -585,11 +588,10 @@ function drawNtgTrack(g, ntgData, xOffset, trackWidth, innerHeight, y, clipId) {
   g.append('path')
     .datum(ntgData.values)
     .attr('d', ntgFill)
-    .attr('fill', '#FDD835') // Ярко-жёлтый
+    .attr('fill', '#FDD835')
     .attr('fill-opacity', 0.5)
     .attr('clip-path', clipId);
 
-  // Ступенчатая линия
   const line = d3.line()
     .defined((d, i) => d != null && isFinite(d) && ntgData.depth[i] != null)
     .curve(d3.curveStepAfter)
@@ -599,7 +601,7 @@ function drawNtgTrack(g, ntgData, xOffset, trackWidth, innerHeight, y, clipId) {
   g.append('path')
     .datum(ntgData.values)
     .attr('fill', 'none')
-    .attr('stroke', '#F57F17') // Тёмно-жёлтый/оранжевый
+    .attr('stroke', '#F57F17')
     .attr('stroke-width', 1.5)
     .attr('d', line)
     .attr('clip-path', clipId);
@@ -615,19 +617,33 @@ function drawNtgTrack(g, ntgData, xOffset, trackWidth, innerHeight, y, clipId) {
 }
 
 function drawPermTrack(g, permData, xOffset, trackWidth, innerHeight, y, clipId) {
+  g.append('text')
+    .attr('x', xOffset + trackWidth / 2)
+    .attr('y', -22)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '11px')
+    .style('font-weight', 'bold')
+    .style('fill', '#D84315')
+    .style('letter-spacing', '0.3px')
+    .text('PERM');
+
   const x = d3.scaleLog()
     .domain([0.01, 10000])
     .range([xOffset, xOffset + trackWidth]);
 
+  // Ось снизу
   g.append('g')
     .attr('transform', `translate(0,${innerHeight})`)
     .call(d3.axisBottom(x).ticks(4, '~g'))
     .selectAll('text').style('font-size', '9px');
 
-  g.append('g')
-    .attr('transform', `translate(0,0)`)
-    .call(d3.axisTop(x).ticks(4, '~g').tickSize(-innerHeight).tickFormat(''))
-    .selectAll('line').style('stroke', '#e0e0e0');
+  // Ось сверху (подписи + сетка)
+  const topG = g.append('g')
+    .attr('transform', 'translate(0,0)')
+    .call(d3.axisTop(x).ticks(4, '~g').tickSize(-innerHeight));
+  topG.selectAll('text').style('font-size', '9px');
+  topG.selectAll('.tick line').style('stroke', '#e0e0e0');
+  topG.selectAll('.domain').remove();
 
   const line = d3.line()
     .defined((d, i) => d != null && isFinite(d) && d > 0 && permData.depth[i] != null)
@@ -653,7 +669,6 @@ function drawPermTrack(g, permData, xOffset, trackWidth, innerHeight, y, clipId)
 }
 
 function drawR0Placeholder(g, xOffset, trackWidth, innerHeight) {
-  // Фоновая заливка + пунктирная рамка
   g.append('rect')
     .attr('x', xOffset).attr('y', 0)
     .attr('width', trackWidth).attr('height', innerHeight)
@@ -661,7 +676,6 @@ function drawR0Placeholder(g, xOffset, trackWidth, innerHeight) {
     .attr('stroke', '#bbb')
     .attr('stroke-dasharray', '4,3');
 
-  // Лёгкая диагональная штриховка (намёк на «пусто»)
   const hatch = 12;
   for (let y0 = -trackWidth; y0 < innerHeight + trackWidth; y0 += hatch) {
     g.append('line')
@@ -673,7 +687,6 @@ function drawR0Placeholder(g, xOffset, trackWidth, innerHeight) {
       .attr('stroke-width', 1);
   }
 
-  // Вертикальный текст по центру (две строки)
   const cx = xOffset + trackWidth / 2;
   const cy = innerHeight / 2;
 
@@ -694,7 +707,6 @@ function drawR0Placeholder(g, xOffset, trackWidth, innerHeight) {
     .attr('dy', '1.2em')
     .text('для настройки модели R0');
 
-  // Подпись трека под осью
   g.append('text')
     .attr('x', cx)
     .attr('y', innerHeight + 45)
@@ -709,9 +721,6 @@ function drawR0Placeholder(g, xOffset, trackWidth, innerHeight) {
 // B33: группировка кривых на одном треке
 // ============================================================================
 
-/**
- * Цвета для групп.
- */
 const GROUP_COLORS = {
   vshale: ['#1B5E20', '#00897B', '#4CAF50', '#F9A825', '#0D47A1', '#AD1457'],
   porosity: {
@@ -725,29 +734,28 @@ const GROUP_COLORS = {
   other: ['#C62828', '#AD1457', '#6A1B9A', '#1565C0', '#00838F'],
 };
 
-/**
- * Отрисовывает группу кривых на одном треке.
- *
- * @param {d3.Selection} g
- * @param {Array<[string, {values, depth, isSaved, isExpress, isExternal}]>} group
- * @param {number} xOffset
- * @param {number} trackWidth
- * @param {number} innerHeight
- * @param {d3.ScaleLinear} y
- * @param {string} clipId
- * @param {{type: string, label: string}} options
- */
 function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, options) {
   const { type, label } = options;
 
-  // Определяем ось X по типу группы
+  // B41: заголовок трека сверху
+  const titleColor =
+    type === 'vshale' ? '#1B5E20' : type === 'porosity' ? '#E65100' : '#C62828';
+  g.append('text')
+    .attr('x', xOffset + trackWidth / 2)
+    .attr('y', -22)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '11px')
+    .style('font-weight', 'bold')
+    .style('fill', titleColor)
+    .style('letter-spacing', '0.3px')
+    .text(label);
+
   let x;
   if (type === 'vshale') {
     x = d3.scaleLinear().domain([0, 1]).range([xOffset, xOffset + trackWidth]);
   } else if (type === 'porosity') {
     x = d3.scaleLinear().domain([0, 0.6]).range([xOffset, xOffset + trackWidth]);
   } else {
-    // other — по фактическому диапазону
     const allVals = group.flatMap(([, item]) =>
       (item.values || []).filter((v) => v != null && isFinite(v))
     );
@@ -756,27 +764,28 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
     x = d3.scaleLinear().domain(extent).range([xOffset, xOffset + trackWidth]).nice();
   }
 
-  // Ось X снизу
+  // Ось снизу
   g.append('g')
     .attr('transform', `translate(0,${innerHeight})`)
     .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.1f')))
     .selectAll('text').style('font-size', '9px');
 
-  // Сетка
-  g.append('g')
-    .attr('transform', `translate(0,0)`)
-    .call(d3.axisTop(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
-    .selectAll('line').style('stroke', '#e0e0e0');
+  // Ось сверху (подписи + сетка)
+  const topG = g.append('g')
+    .attr('transform', 'translate(0,0)')
+    .call(
+      d3.axisTop(x).ticks(5).tickFormat(d3.format('.1f')).tickSize(-innerHeight)
+    );
+  topG.selectAll('text').style('font-size', '9px');
+  topG.selectAll('.tick line').style('stroke', '#e0e0e0');
+  topG.selectAll('.domain').remove();
 
-  // Индекс для раскраски
   let colorIndex = 0;
   const externalIndex = {};
 
-  // Рисуем каждую кривую
   group.forEach(([mnemonic, item]) => {
-    const { values, depth: trackDepth, isSaved, isExternal, isExpress } = item;
+    const { values, depth: trackDepth, isSaved, isExternal } = item;
 
-    // Цвет
     let color;
     if (type === 'vshale') {
       color = GROUP_COLORS.vshale[colorIndex % GROUP_COLORS.vshale.length];
@@ -797,13 +806,8 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
       colorIndex++;
     }
 
-    // Стиль линии: live — толстый сплошной, saved — тонкий пунктирный
     const dashArray = isSaved ? '4,2' : 'none';
-    const strokeWidth = isExternal
-      ? 1.8
-      : isSaved
-      ? 1.2  // saved — тонкий, «фоновый»
-      : 2.0; // live — толстый, доминирует
+    const strokeWidth = isExternal ? 1.8 : isSaved ? 1.2 : 2.0;
 
     const line = d3.line()
       .defined((d, i) => d != null && isFinite(d) && trackDepth[i] != null)
@@ -820,7 +824,6 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
       .attr('clip-path', clipId);
   });
 
-  // Легенда под треком — все мнемоники в ряд (B37: компактнее)
   const legendY = innerHeight + 32;
   const itemWidth = Math.min(45, trackWidth / Math.max(group.length, 1));
   const startX = xOffset + (trackWidth - itemWidth * group.length) / 2;
@@ -865,7 +868,6 @@ function drawCurveGroup(g, group, xOffset, trackWidth, innerHeight, y, clipId, o
       );
   });
 
-  // Заголовок группы
   g.append('text')
     .attr('x', xOffset + trackWidth / 2)
     .attr('y', innerHeight + 48)

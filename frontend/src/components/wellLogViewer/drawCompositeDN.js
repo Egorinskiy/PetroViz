@@ -25,16 +25,20 @@ export function drawCompositeDN(
     .domain(nStyle.domain)
     .range([xOffset, xOffset + trackWidth]);
 
-  // Обе линейки снизу
+  // B41: заголовок трека сверху
+  g.append('text')
+    .attr('x', xOffset + trackWidth / 2)
+    .attr('y', -22)
+    .attr('text-anchor', 'middle')
+    .style('font-size', '11px')
+    .style('font-weight', 'bold')
+    .style('fill', '#333')
+    .style('letter-spacing', '0.3px')
+    .text('RHOB + NPHI');
+
+  // B41: density шкала — только сверху, снизу — только NPHI (синяя)
   g.append('g')
     .attr('transform', `translate(0,${innerHeight})`)
-    .call(d3.axisBottom(xDensity).ticks(4).tickFormat(d3.format('.2f')))
-    .selectAll('text')
-    .style('font-size', '9px')
-    .style('fill', dStyle.color);
-
-  g.append('g')
-    .attr('transform', `translate(0,${innerHeight + 28})`)
     .call(d3.axisBottom(xNeutron).ticks(4).tickFormat(d3.format('.2f')))
     .selectAll('text')
     .style('font-size', '9px')
@@ -42,17 +46,7 @@ export function drawCompositeDN(
 
   g.append('text')
     .attr('x', xOffset + trackWidth / 2)
-    .attr('y', innerHeight + 58)
-    .attr('text-anchor', 'middle')
-    .style('font-size', '10px')
-    .style('font-weight', 'bold')
-    .style('fill', dStyle.color)
-    .text('RHOB (g/cm³)')
-    .append('title').text(densityCurve);
-
-  g.append('text')
-    .attr('x', xOffset + trackWidth / 2)
-    .attr('y', innerHeight + 74)
+    .attr('y', innerHeight + 45)
     .attr('text-anchor', 'middle')
     .style('font-size', '10px')
     .style('font-weight', 'bold')
@@ -60,14 +54,21 @@ export function drawCompositeDN(
     .text('NPHI (v/v)')
     .append('title').text(neutronCurve);
 
-  // Сетка по NPHI
-  g.append('g')
-    .attr('transform', `translate(0,0)`)
+  // Ось X сверху (density + grid) — B5+: дублирование снизу
+  const topG = g.append('g')
+    .attr('transform', 'translate(0,0)')
     .call(
-      d3.axisTop(xNeutron).ticks(4).tickSize(-innerHeight).tickFormat('')
-    )
-    .selectAll('line')
+      d3.axisTop(xDensity).ticks(4).tickFormat(d3.format('.2f')).tickSize(-innerHeight)
+    );
+
+  topG.selectAll('text')
+    .style('font-size', '9px')
+    .style('fill', dStyle.color);
+
+  topG.selectAll('.tick line')
     .style('stroke', '#e0e0e0');
+
+  topG.selectAll('.domain').remove();
 
   // Данные
   const depValues = wellData[densityCurve] || [];
