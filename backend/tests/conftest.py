@@ -199,3 +199,29 @@ def auth_client(client, auth_headers):
             return self._client.patch(url, headers=self._merge(kwargs), **kwargs)
 
     return AuthedClient(client, auth_headers)
+
+@pytest.fixture
+def admin_client(client, admin_headers):
+    """TestClient с предустановленными auth-заголовками администратора."""
+    class AuthedClient:
+        def __init__(self, client, headers):
+            self._client = client
+            self._headers = headers
+
+        def _merge(self, kwargs):
+            h = kwargs.pop("headers", {})
+            return {**self._headers, **h}
+
+        def get(self, url, **kwargs):
+            return self._client.get(url, headers=self._merge(kwargs), **kwargs)
+
+        def post(self, url, **kwargs):
+            return self._client.post(url, headers=self._merge(kwargs), **kwargs)
+
+        def delete(self, url, **kwargs):
+            return self._client.delete(url, headers=self._merge(kwargs), **kwargs)
+
+        def patch(self, url, **kwargs):
+            return self._client.patch(url, headers=self._merge(kwargs), **kwargs)
+
+    return AuthedClient(client, admin_headers)

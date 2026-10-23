@@ -1,69 +1,50 @@
 """
 Integration-тесты для computation_refs (Sw/Swi/R0).
-
-Проверяют валидацию в ComputationService._load_computation_refs:
-- отсутствие обязательного ref → 400
-- несуществующий UUID → 400
-- неверная категория метода (VSH вместо PHI) → 400
-- успешный расчёт с корректными refs → 200 + sources в ответе
-- сохранение Swi с refs → source_refs пишется в БД
 """
 import json
 import uuid
-from pathlib import Path
-
+import numpy as np
 import pytest
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-SAMPLE_LAS = BASE_DIR / "sample_data" / "sample.las"
 
 
 # ============================================================================
 # Helpers
 # ============================================================================
 
-def _upload_sample_las(client) -> str:
-    """Загружает sample.las, возвращает well_id."""
-    assert SAMPLE_LAS.exists(), f"Нет файла: {SAMPLE_LAS}"
-    with SAMPLE_LAS.open("rb") as f:
-        r = client.post(
-            "/api/wells/upload",
-            files={"file": ("sample.las", f, "application/octet-stream")},
-        )
+def _upload_synthetic_las(client) -> str:
+    """Создает временный LAS-файл в памяти с нужными кривыми (GR, RHOB, RDEP)."""
+    depth = np.linspace(1000, 1100, 101)
+    gr = np.random.uniform(20, 100, 101)
+    rhob = np.random.uniform(2.0, 2.6, 101)
+    rdep = np.random.uniform(1, 100, 101)
+
+    lines = [
+        "~Version",
+        " VERS. 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0",
+        " WRAP. NO  : ONE LINE PER DEPTH STEP",
+        "~Well",
+        f" STRT.M {depth[0]} :",
+        f" STOP.M {depth[-1]} :",
+        " STEP.M 1.0 :",
+        " NULL. -999.25 :",
+        "~Curve",
+        " DEPT.M : DEPTH",
+        " GR.GAPI : GAMMA RAY",
+        " RHOB.G/C3 : DENSITY",
+        " RDEP.OHMM : RESISTIVITY",
+        "~ASCII"
+    ]
+    for i in range(len(depth)):
+        lines.append(f"{depth[i]:.2f} {gr[i]:.2f} {rhob[i]:.2f} {rdep[i]:.2f}")
+
+    las_content = "\n".join(lines).encode("utf-8")
+
+    r = client.post(
+        "/api/wells/upload",
+        files={"file": ("synthetic.las", las_content, "application/octet-stream")},
+    )
     assert r.status_code == 200, r.text
     return r.json()["well_id"]
-
-
-def _available_curves(client, well_id: str) -> list[str]:
-    r = client.get(f"/api/wells/{well_id}")
-    assert r.status_code == 200, r.text
-    return [c["mnemonic"] for c in r.json()["curves"]]
-
-
-def _find_method_for(curves: list[str], category: str) -> str | None:
-    """Возвращает подходящий метод для категории, если нужные кривые есть."""
-    upper = {c.upper() for c in curves}
-    if category == "vshale":
-        if upper & {"GR", "GAM", "GAPI", "SGR", "HSGR", "GK"}:
-            return "vshale_linear"
-        return None
-    if category == "porosity":
-        if upper & {"RHOB", "RHOZ", "ROBB", "DEN", "ZDEN"}:
-            return "porosity_density"
-        if upper & {"NPHI", "CNL", "TNPH", "NNK"}:
-            return "porosity_neutron"
-        if upper & {"DTC", "DT", "AC", "SONIC"}:
-            return "porosity_sonic"
-        return None
-    return None
-
-
-def _find_rt(curves: list[str]) -> str | None:
-    upper = {c.upper() for c in curves}
-    for candidate in ["RDEP", "RT", "ILD", "LLD", "RES"]:
-        if candidate in upper:
-            return candidate
-    return None
 
 
 def _save_comp(client, well_id: str, method: str, mapping=None, params=None) -> str:
@@ -88,88 +69,79 @@ def _error_text(r) -> str:
 
 
 # ============================================================================
-# Ошибки — ref обязателен
+# Ошибки — ref обязателен (используем admin_client для обхода RBAC)
 # ============================================================================
 
-def test_sw_archie_without_refs(auth_client):
+def test_sw_archie_without_refs(admin_client):
     """sw_archie без computation_refs → 400."""
-    well_id = _upload_sample_las(auth_client)
-    curves = _available_curves(auth_client, well_id)
-    rt = _find_rt(curves)
-    if rt is None:
-        pytest.skip("Sample LAS has no resistivity curve")
+    well_id = _upload_synthetic_las(admin_client)
 
-    r = auth_client.post("/api/computations/preview", json={
+    r = admin_client.post("/api/computations/preview", json={
         "well_id": well_id,
         "method": "sw_archie",
-        "curve_mapping": {"rt": rt},
+        "curve_mapping": {"rt": "RDEP"},
         "params": {},
     })
     assert r.status_code == 400, r.text
     text = _error_text(r)
-    assert "requires saved computations" in text or "computation_refs" in text
+    # Проверяем русский текст ошибки
+    assert "источник" in text or "computation_refs" in text
 
 
-def test_sw_archie_with_nonexistent_ref(auth_client):
+def test_sw_archie_with_nonexistent_ref(admin_client):
     """sw_archie с несуществующим UUID → 400."""
-    well_id = _upload_sample_las(auth_client)
-    curves = _available_curves(auth_client, well_id)
-    rt = _find_rt(curves)
-    if rt is None:
-        pytest.skip("Sample LAS has no resistivity curve")
-
+    well_id = _upload_synthetic_las(admin_client)
     fake_id = str(uuid.uuid4())
-    r = auth_client.post("/api/computations/preview", json={
+
+    r = admin_client.post("/api/computations/preview", json={
         "well_id": well_id,
         "method": "sw_archie",
-        "curve_mapping": {"rt": rt},
+        "curve_mapping": {"rt": "RDEP"},
         "computation_refs": {"phi": fake_id},
     })
     assert r.status_code == 400, r.text
-    assert "not found" in _error_text(r)
+    # Проверяем русский текст ошибки
+    assert "не найден" in _error_text(r)
 
 
-def test_sw_archie_with_wrong_category(auth_client):
+def test_sw_archie_with_wrong_category(admin_client):
     """VSH передан как phi → 400 про категорию."""
-    well_id = _upload_sample_las(auth_client)
-    curves = _available_curves(auth_client, well_id)
-    rt = _find_rt(curves)
-    if rt is None:
-        pytest.skip("Sample LAS has no resistivity curve")
-    vsh_method = _find_method_for(curves, "vshale")
-    if vsh_method is None:
-        pytest.skip("Sample LAS has no GR curve")
+    well_id = _upload_synthetic_las(admin_client)
 
-    vsh_id = _save_comp(auth_client, well_id, vsh_method)
-    r = auth_client.post("/api/computations/preview", json={
+    # Сохраняем VSH
+    vsh_id = _save_comp(
+        admin_client, well_id, "vshale_linear",
+        mapping={"gr": "GR"}, params={"gr_min": 15, "gr_max": 120}
+    )
+
+    # Пытаемся использовать VSH как PHI
+    r = admin_client.post("/api/computations/preview", json={
         "well_id": well_id,
         "method": "sw_archie",
-        "curve_mapping": {"rt": rt},
+        "curve_mapping": {"rt": "RDEP"},
         "computation_refs": {"phi": vsh_id},
     })
     assert r.status_code == 400, r.text
-    assert "category" in _error_text(r)
+    # Проверяем русский текст ошибки (категория)
+    assert "категор" in _error_text(r)
 
 
 # ============================================================================
 # Успешные расчёты
 # ============================================================================
 
-def test_sw_archie_success(auth_client):
-    well_id = _upload_sample_las(auth_client)
-    curves = _available_curves(auth_client, well_id)
-    rt = _find_rt(curves)
-    if rt is None:
-        pytest.skip("Sample LAS has no resistivity curve")
-    phi_method = _find_method_for(curves, "porosity")
-    if phi_method is None:
-        pytest.skip("Sample LAS has no porosity curves")
+def test_sw_archie_success(admin_client):
+    well_id = _upload_synthetic_las(admin_client)
 
-    phi_id = _save_comp(auth_client, well_id, phi_method)
-    r = auth_client.post("/api/computations/preview", json={
+    phi_id = _save_comp(
+        admin_client, well_id, "porosity_density",
+        mapping={"rhob": "RHOB"}, params={"rho_matrix": 2.65, "rho_fluid": 1.0}
+    )
+
+    r = admin_client.post("/api/computations/preview", json={
         "well_id": well_id,
         "method": "sw_archie",
-        "curve_mapping": {"rt": rt},
+        "curve_mapping": {"rt": "RDEP"},
         "params": {"a": 1.0, "m": 2.0, "n": 2.0, "rw": 0.1},
         "computation_refs": {"phi": phi_id},
     })
@@ -180,19 +152,20 @@ def test_sw_archie_success(auth_client):
     assert len(body["curves"]["SW"]["values"]) == len(body["depth"])
 
 
-def test_swi_bound_water_success(auth_client):
+def test_swi_bound_water_success(admin_client):
     """Swi требует 2 ref — VSH и PHI."""
-    well_id = _upload_sample_las(auth_client)
-    curves = _available_curves(auth_client, well_id)
-    vsh_method = _find_method_for(curves, "vshale")
-    phi_method = _find_method_for(curves, "porosity")
-    if vsh_method is None or phi_method is None:
-        pytest.skip("Sample LAS has no GR or porosity curves")
+    well_id = _upload_synthetic_las(admin_client)
 
-    vsh_id = _save_comp(auth_client, well_id, vsh_method)
-    phi_id = _save_comp(auth_client, well_id, phi_method)
+    vsh_id = _save_comp(
+        admin_client, well_id, "vshale_linear",
+        mapping={"gr": "GR"}, params={"gr_min": 15, "gr_max": 120}
+    )
+    phi_id = _save_comp(
+        admin_client, well_id, "porosity_density",
+        mapping={"rhob": "RHOB"}, params={"rho_matrix": 2.65, "rho_fluid": 1.0}
+    )
 
-    r = auth_client.post("/api/computations/preview", json={
+    r = admin_client.post("/api/computations/preview", json={
         "well_id": well_id,
         "method": "swi_bound_water",
         "params": {"c1": 0.015, "c2": 0.2},
@@ -204,16 +177,16 @@ def test_swi_bound_water_success(auth_client):
     assert body["sources"] == {"vsh": vsh_id, "phi": phi_id}
 
 
-def test_r0_archie_success(auth_client):
+def test_r0_archie_success(admin_client):
     """R0 требует только PHI."""
-    well_id = _upload_sample_las(auth_client)
-    curves = _available_curves(auth_client, well_id)
-    phi_method = _find_method_for(curves, "porosity")
-    if phi_method is None:
-        pytest.skip("Sample LAS has no porosity curves")
+    well_id = _upload_synthetic_las(admin_client)
 
-    phi_id = _save_comp(auth_client, well_id, phi_method)
-    r = auth_client.post("/api/computations/preview", json={
+    phi_id = _save_comp(
+        admin_client, well_id, "porosity_density",
+        mapping={"rhob": "RHOB"}, params={"rho_matrix": 2.65, "rho_fluid": 1.0}
+    )
+
+    r = admin_client.post("/api/computations/preview", json={
         "well_id": well_id,
         "method": "r0_archie",
         "params": {"a": 1.0, "m": 2.0, "rw": 0.1},
@@ -229,20 +202,21 @@ def test_r0_archie_success(auth_client):
 # Сохранение Swi → source_refs в БД
 # ============================================================================
 
-def test_save_swi_persists_sources(auth_client):
+def test_save_swi_persists_sources(admin_client):
     """Сохранение Swi → source_refs сохраняются и возвращаются при list."""
-    well_id = _upload_sample_las(auth_client)
-    curves = _available_curves(auth_client, well_id)
-    vsh_method = _find_method_for(curves, "vshale")
-    phi_method = _find_method_for(curves, "porosity")
-    if vsh_method is None or phi_method is None:
-        pytest.skip("Sample LAS has no GR or porosity curves")
+    well_id = _upload_synthetic_las(admin_client)
 
-    vsh_id = _save_comp(auth_client, well_id, vsh_method)
-    phi_id = _save_comp(auth_client, well_id, phi_method)
+    vsh_id = _save_comp(
+        admin_client, well_id, "vshale_linear",
+        mapping={"gr": "GR"}, params={"gr_min": 15, "gr_max": 120}
+    )
+    phi_id = _save_comp(
+        admin_client, well_id, "porosity_density",
+        mapping={"rhob": "RHOB"}, params={"rho_matrix": 2.65, "rho_fluid": 1.0}
+    )
 
     # Сохраняем Swi с refs
-    r = auth_client.post(f"/api/wells/{well_id}/computations", json={
+    r = admin_client.post(f"/api/wells/{well_id}/computations", json={
         "method": "swi_bound_water",
         "params": {"c1": 0.015, "c2": 0.2},
         "computation_refs": {"vsh": vsh_id, "phi": phi_id},
@@ -252,7 +226,7 @@ def test_save_swi_persists_sources(auth_client):
     assert body["source_refs"] == {"vsh": vsh_id, "phi": phi_id}
 
     # Проверяем, что при list source_refs тоже приходят
-    r2 = auth_client.get(f"/api/wells/{well_id}/computations")
+    r2 = admin_client.get(f"/api/wells/{well_id}/computations")
     assert r2.status_code == 200
     items = r2.json()["items"]
     swi_item = next(i for i in items if i["method"] == "swi_bound_water")
