@@ -3,6 +3,7 @@ import { FileUpload } from './FileUpload';
 import { ScaleSelector } from './ScaleSelector';
 import { Logo } from './Logo';
 import { ChartIcon, CurvesIcon, SaveIcon } from './Icons';
+import { ExportMenu } from './ExportMenu';
 import { GridStepSelect } from './GridStepSelect';
 import { DepthRangePicker } from './DepthRangePicker';
 
@@ -34,6 +35,8 @@ export function Topbar({
   onSavePad,
   saveFlash = false,
   restoreBadge = false,
+  // B42/B44
+  onExport,
 }) {
   return (
     <div className="topbar">
@@ -78,6 +81,13 @@ export function Topbar({
               <span className="badge badge--shared">shared</span>
             )}
           </div>
+        </>
+      )}
+
+      {onExport && (
+        <>
+          <div className="topbar-sep" />
+          <ExportMenu onExport={onExport} />
         </>
       )}
 

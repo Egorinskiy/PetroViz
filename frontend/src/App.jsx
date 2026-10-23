@@ -19,7 +19,7 @@ import { AdminRoute } from './components/AdminRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { UserMenu } from './components/UserMenu';
 import { ErrorModal } from './components/ErrorModal';
-import { ExportLasModal } from './components/ExportLasModal';
+import { ExportModal } from './components/ExportModal';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -73,12 +73,13 @@ function MainPage() {
   const [restoreBadge, setRestoreBadge] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
 
-  // B42: экспорт в LAS
+  // B42/B44: экспорт (LAS или CSV)
   const [exportModalOpen, setExportModalOpen] = useState(false);
-  // B42: список сохранённых для экспорта (загружаем по запросу)
-  const [savedForExport, setSavedForExport] = useState([]);
+  const [exportFormat, setExportFormat] = useState('las'); // 'las' | 'csv'
   const [exportSaving, setExportSaving] = useState(false);
   const [exportError, setExportError] = useState(null);
+  // B42: список сохранённых для экспорта (загружаем по запросу)
+  const [savedForExport, setSavedForExport] = useState([]);
 
 
   const debounceRef = useRef(null);
@@ -135,13 +136,18 @@ function MainPage() {
 
   const handleToggleCurves = () => setCurvesVisible((v) => !v);
 
-  // B42: скачать LAS
-  const handleDownloadLas = async (computationIds, includeSource = true) => {
+  // B42/B44: скачать экспорт (LAS или CSV)
+  const handleDownloadExport = async (computationIds, includeSource = true) => {
     if (!activeWellId) return;
     setExportSaving(true);
     setExportError(null);
     try {
-      const { blob, filename } = await computationsApi.exportLas(
+      const fn =
+        exportFormat === 'csv'
+          ? computationsApi.exportCsv
+          : computationsApi.exportLas;
+
+      const { blob, filename } = await fn(
         activeWellId,
         computationIds,
         includeSource
@@ -159,7 +165,12 @@ function MainPage() {
 
       setExportModalOpen(false);
     } catch (err) {
-      setExportError(extractErrorMessage(err, 'Не удалось экспортировать LAS'));
+      setExportError(
+        extractErrorMessage(
+          err,
+          `Не удалось экспортировать ${exportFormat.toUpperCase()}`
+        )
+      );
     } finally {
       setExportSaving(false);
     }
@@ -361,9 +372,10 @@ function MainPage() {
         onSavePad={activeWellId ? handleSavePad : null}
         saveFlash={saveFlash}
         restoreBadge={restoreBadge}
-        onExportLas={
+        onExport={
           activeWellId
-            ? async () => {
+            ? async (format) => {
+                setExportFormat(format);
                 setExportError(null);
                 try {
                   const items = await computationsApi.listForWell(activeWellId);
@@ -533,12 +545,13 @@ function MainPage() {
         )}
       </div>
 
-      {/* B42: экспорт в LAS */}
+      {/* B42/B44: экспорт (LAS или CSV) */}
       {exportModalOpen && (
-        <ExportLasModal
+        <ExportModal
+          format={exportFormat}
           items={savedForExport}
           onCancel={() => !exportSaving && setExportModalOpen(false)}
-          onConfirm={handleDownloadLas}
+          onConfirm={handleDownloadExport}
           saving={exportSaving}
           error={exportError}
         />

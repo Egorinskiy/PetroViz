@@ -72,4 +72,48 @@ export const computationsApi = {
    */
   remove: (compId) =>
     apiClient.delete(`/computations/${compId}`),
+
+  /**
+   * Экспорт скважины + выбранных расчётов в LAS.
+   * Возвращает { blob, filename }.
+   */
+  exportLas: async (wellId, computationIds, includeSourceCurves = true) => {
+    const response = await apiClient.post(
+      `/wells/${wellId}/export-las`,
+      {
+        computations: computationIds,
+        include_source_curves: includeSourceCurves,
+      },
+      { responseType: 'blob' }
+    );
+
+    // Достаём имя файла из Content-Disposition
+    const disposition = response.headers['content-disposition'] || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match?.[1] || `well_${wellId.slice(0, 8)}.las`;
+
+    return { blob: response.data, filename };
+  },
+
+    /**
+   * Экспорт в CSV (UTF-8 BOM, разделитель ',').
+   * Возвращает { blob, filename }.
+   */
+  exportCsv: async (wellId, computationIds, includeSourceCurves = true) => {
+    const response = await apiClient.post(
+      `/wells/${wellId}/export-csv`,
+      {
+        computations: computationIds,
+        include_source_curves: includeSourceCurves,
+      },
+      { responseType: 'blob' }
+    );
+
+    const disposition = response.headers['content-disposition'] || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match?.[1] || `well_${wellId.slice(0, 8)}.csv`;
+
+    return { blob: response.data, filename };
+  },
 };
+
