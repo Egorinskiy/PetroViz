@@ -27,10 +27,12 @@ import { AdminWellsPage } from './pages/AdminWellsPage';
 import { computationsApi } from './api/computations';
 import { extractErrorMessage } from './utils/errors';
 import { usePadState } from './hooks/usePadState';
+import { LandingPage } from './components/LandingPage';
 import './App.css';
 
 function MainPage() {
   const { user } = useAuth();
+  if (!user) return <LandingPage />;
   const { wells, loading: wellsLoading, error: wellsError, reload } = useWellList();
 
   const [activeWellId, setActiveWellId] = useState(null);
@@ -629,10 +631,10 @@ function App() {
         {/* --- Главная (защищённая) --- */}
         <Route
           path="/"
-          element={
-            <ProtectedRoute>
-              <MainPage />
-            </ProtectedRoute>
+              element={
+                <ProtectedRoute fallback={<LandingPage />}>
+                  <MainPage />
+                </ProtectedRoute>
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
