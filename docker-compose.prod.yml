@@ -10,23 +10,31 @@ services:
       POSTGRES_DB: petroviz
     volumes:
       - pgdata:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   backend:
     build:
       context: ./backend
     restart: always
     environment:
-      # Собираем URL для БД внутри докер-сети (хост = db)
       - PETROVIZ_DATABASE_URL=postgresql+asyncpg://petroviz:${POSTGRES_PASSWORD}@db:5432/petroviz
       - PETROVIZ_JWT_SECRET=${PETROVIZ_JWT_SECRET}
       - PETROVIZ_ADMIN_PASSWORD=${PETROVIZ_ADMIN_PASSWORD}
       - PETROVIZ_ALLOWED_ORIGINS=${PETROVIZ_ALLOWED_ORIGINS}
-      # ВАЖНО: Путь к parquet-файлам внутри контейнера
       - PETROVIZ_WELL_DATA_DIR=/app/storage/wells
     volumes:
       - backend_storage:/app/storage
     depends_on:
       - db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build:
@@ -35,8 +43,15 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   pgdata:
