@@ -32,7 +32,6 @@ import './App.css';
 
 function MainPage() {
   const { user } = useAuth();
-  if (!user) return <LandingPage />;
   const { wells, loading: wellsLoading, error: wellsError, reload } = useWellList();
 
   const [activeWellId, setActiveWellId] = useState(null);

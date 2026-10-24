@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-export function ProtectedRoute({ children, requireAdmin = false }) {
+export function ProtectedRoute({ children, requireAdmin = false, fallback = null }) {
   const { isAuthenticated, isAdmin, loading } = useAuth();
   const location = useLocation();
 
@@ -16,7 +16,9 @@ export function ProtectedRoute({ children, requireAdmin = false }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // Если передан fallback (например, лендинг), показываем его
+    // Иначе — редиректим на логин
+    return fallback ? fallback : <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (requireAdmin && !isAdmin) {

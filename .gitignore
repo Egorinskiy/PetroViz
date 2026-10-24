@@ -44,3 +44,7 @@ env/
 # ============ Бэкапы ============
 *.zip
 backend_git_backup.zip
+
+
+docs/USER_GUIDE.html
+docs/USER_GUIDE.pdf
