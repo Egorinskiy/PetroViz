@@ -9,7 +9,7 @@
 - **Стек:** FastAPI + React + PostgreSQL + JWT-auth + RBAC
 
 <small><i>⚠️ Примечание: платформа спроектирована как профессиональный инструмент для плотных графиков и оптимизирована для настольных компьютеров (Desktop). Мобильная адаптация находится в планах развития (см. Roadmap).</i></small>
-<br clear="left"/>
+<div style="clear: both; margin-bottom: 10px;"></div>
 
 ---
 
@@ -95,7 +95,7 @@ docker compose up -d postgres
 ~~~
 *(БД на localhost:5433)*
 
-**Вариант B (Локально):** Установите PostgreSQL 16+ и создайте БД `petroviz` и `petroviz_test`.
+**Вариант B (Локально):** Установите PostgreSQL 18+ и создайте БД `petroviz` и `petroviz_test`.
 
 ### 2. Backend
 ~~~powershell
@@ -143,7 +143,6 @@ pytest tests/ -v
 - [DESIGN.md](DESIGN.md) — Дизайн-система (цвета, типографика, компоненты).
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — Руководство пользователя.
 - [docs/USER_GUIDE.pdf](docs/USER_GUIDE.pdf) — Руководство пользователя (PDF с обложкой).
-- [docs/DEFENSE_FAQ.md](docs/DEFENSE_FAQ.md) — Ответы на вопросы комиссии.
 - [backend/tests/TESTS.md](backend/tests/TESTS.md) — Подробное описание всех 104 тестов.
 
 ---
