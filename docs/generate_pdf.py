@@ -5,12 +5,14 @@ import base64
 MD_FILE = "USER_GUIDE.md"
 HTML_FILE = "USER_GUIDE.html"
 
-FONT_SANS_PATH = "..docs/fonts/Geist-Variable.woff2"
-FONT_MONO_PATH = "..docs/fonts/GeistMono-Variable.woff2"
+# ВАЖНО: правильные пути к шрифтам (из папки docs выходим на уровень выше и идем в frontend)
+FONT_SANS_PATH = "fonts/Geist-Variable.woff2"
+FONT_MONO_PATH = "fonts/GeistMono-Variable.woff2"
 
 
 def get_font_base64(path):
     if not os.path.exists(path):
+        print(f"ВНИМАНИЕ: Шрифт не найден по пути {path}")
         return ""
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
@@ -24,6 +26,7 @@ def generate_html():
     with open(MD_FILE, "r", encoding="utf-8") as f:
         md_text = f.read()
 
+    # Включаем поддержку таблиц и блоков кода
     html_content = markdown.markdown(md_text, extensions=['tables', 'fenced_code'])
 
     sans_b64 = get_font_base64(FONT_SANS_PATH)
@@ -53,14 +56,11 @@ def generate_html():
                 print-color-adjust: exact !important;
             }}
 
-            /* --- НАСТРОЙКА СТРАНИЦ --- */
             @page {{
                 size: A4;
-                /* Поля для всех страниц */
                 margin: 20mm 15mm; 
             }}
 
-            /* Обнуляем поля только для первой страницы (обложки) */
             @page :first {{
                 margin: 0;
             }}
@@ -75,9 +75,8 @@ def generate_html():
 
             /* --- ОБЛОЖКА --- */
             .cover-page {{
-                /* Фиксированный размер листа А4 */
                 width: 210mm;
-                height: 296mm; /* Чуть меньше 297, чтобы не создавать пустой лист */
+                height: 296mm; 
                 background: linear-gradient(135deg, #1A3D5C 0%, #8B2520 100%) !important;
                 display: flex;
                 flex-direction: column;
@@ -139,15 +138,12 @@ def generate_html():
             /* --- КОНТЕНТ --- */
             .content-wrapper {{
                 page-break-before: always;
-                /* Убрали padding, так как поля теперь задаются в @page */
             }}
 
-            /* Защита от разрывов посередине текста */
             p, li, tr, img, h1, h2, h3, blockquote, pre {{
                 page-break-inside: avoid;
             }}
 
-            /* Отступы для списков */
             ul, ol {{
                 margin-top: 10px;
                 margin-bottom: 15px;
@@ -240,7 +236,7 @@ def generate_html():
     with open(HTML_FILE, "w", encoding="utf-8") as f:
         f.write(html_template)
 
-    print("Успех! Файл HTML обновлен (добавлены поля для страниц и защита от разрывов).")
+    print("Успех! HTML обновлен. Проверьте, что шрифты загрузились (нет сообщений ВНИМАНИЕ выше).")
 
 
 if __name__ == "__main__":
