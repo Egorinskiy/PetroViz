@@ -106,7 +106,7 @@ export function usePorosityExpress({
     try {
       const calcPromises = methods.map((m) =>
         computationsApi
-          .preview(wellId, m.key, m.mapping, m.params)
+          .preview(wellId, m.key, m.params, m.mapping)
           .then((data) => ({ ok: true, kind: 'calc', key: m.key, mnemonic: m.label, data }))
           .catch((err) => ({
             ok: false,
@@ -119,7 +119,7 @@ export function usePorosityExpress({
 
       const externalPromises = (externalCurves || []).map((c) =>
         computationsApi
-          .externalCurve(wellId, c.mnemonic)
+          .getExternalCurve(wellId, c.mnemonic) // <--- ДОБАВЛЕНО "get"
           .then((data) => ({ ok: true, kind: 'external', mnemonic: c.mnemonic, data }))
           .catch((err) => ({
             ok: false,

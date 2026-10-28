@@ -236,6 +236,8 @@ function MainPage() {
 
   // --- Выбор скважины ---
   const handleSelectWell = (well) => {
+      // Если кликнули на уже активную скважину — ничего не делаем (фикс B56)
+    if (well.well_id === activeWellId) return;
     setActiveWellId(well.well_id);
     setAvailableCurves(well.curves.map((c) => c.mnemonic));
     const units = {};

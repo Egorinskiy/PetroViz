@@ -40,7 +40,7 @@ export const computationsApi = {
   getExternalCurve: async (wellId, curveName) => {
     const response = await apiClient.post('/computations/external-curve', {
       well_id: wellId,
-      curve_name: curveName,
+      mnemonic: curveName,
     });
     return response.data;
   },
