@@ -7,7 +7,7 @@ import uuid as _uuid
 import re
 from datetime import datetime
 from io import StringIO
-
+import numpy as np
 import lasio
 from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -388,11 +388,6 @@ async def export_well_las(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Экспортирует скважину + выбранные расчёты в LAS 2.0.
-
-    LAS можно открыть в Techlog, Geolog, IP и др. — это стандарт индустрии.
-    """
     well_repo = WellRepository(session)
     well_result = await well_repo.get(well_id, user_id=current_user.id)
     if well_result is None:
@@ -401,90 +396,44 @@ async def export_well_las(
 
     well, df = well_result
 
-    # --- Строим LASFile ---
     las = lasio.LASFile()
 
     # ~V (Version)
-    las.version['VERS'] = lasio.HeaderItem(
-        'VERS', unit='', value='2.0',
-        descr='CWLS LOG ASCII STANDARD - VERSION 2.0',
-    )
-    las.version['WRAP'] = lasio.HeaderItem(
-        'WRAP', unit='', value='NO', descr='ONE LINE PER DEPTH STEP',
-    )
-    las.version['DLM'] = lasio.HeaderItem(
-        'DLM', unit='', value='COMMA', descr='DELIMITING CHARACTER',
-    )
-    las.version['STRT'] = lasio.HeaderItem(
-        'STRT', unit='M', value=float(well.start_depth), descr='START DEPTH',
-    )
-    las.version['STOP'] = lasio.HeaderItem(
-        'STOP', unit='M', value=float(well.stop_depth), descr='STOP DEPTH',
-    )
-    las.version['STEP'] = lasio.HeaderItem(
-        'STEP', unit='M',
-        value=float(well.step) if well.step else '',
-        descr='STEP',
-    )
-    las.version['NULL'] = lasio.HeaderItem(
-        'NULL', unit='', value=-999.25, descr='NULL VALUE',
-    )
+    las.version['VERS'] = lasio.HeaderItem('VERS', unit='', value='2.0', descr='CWLS LOG ASCII STANDARD - VERSION 2.0')
+    las.version['WRAP'] = lasio.HeaderItem('WRAP', unit='', value='NO', descr='ONE LINE PER DEPTH STEP')
+    las.version['STRT'] = lasio.HeaderItem('STRT', unit='M', value=float(well.start_depth), descr='START DEPTH')
+    las.version['STOP'] = lasio.HeaderItem('STOP', unit='M', value=float(well.stop_depth), descr='STOP DEPTH')
+    las.version['STEP'] = lasio.HeaderItem('STEP', unit='M', value=float(well.step) if well.step else '', descr='STEP')
+    las.version['NULL'] = lasio.HeaderItem('NULL', unit='', value=-999.25, descr='NULL VALUE')
 
     # ~W (Well)
-    las.well['WELL'] = lasio.HeaderItem(
-        'WELL', unit='', value=well.well_name or well.filename, descr='WELL NAME',
-    )
-    las.well['STRT'] = lasio.HeaderItem(
-        'STRT', unit='M', value=float(well.start_depth), descr='START DEPTH',
-    )
-    las.well['STOP'] = lasio.HeaderItem(
-        'STOP', unit='M', value=float(well.stop_depth), descr='STOP DEPTH',
-    )
-    las.well['STEP'] = lasio.HeaderItem(
-        'STEP', unit='M',
-        value=float(well.step) if well.step else '',
-        descr='STEP',
-    )
-    las.well['NULL'] = lasio.HeaderItem(
-        'NULL', unit='', value=-999.25, descr='NULL VALUE',
-    )
-    las.well['COMP'] = lasio.HeaderItem(
-        'COMP', unit='', value='PetroViz Export', descr='COMPANY',
-    )
-    las.well['DATE'] = lasio.HeaderItem(
-        'DATE', unit='', value=datetime.now().strftime('%Y-%m-%d'),
-        descr='DATE',
-    )
-    las.well['SRC'] = lasio.HeaderItem(
-        'SRC', unit='', value=f'PetroViz (original: {well.filename})',
-        descr='SOURCE',
-    )
+    las.well['WELL'] = lasio.HeaderItem('WELL', unit='', value=well.well_name or well.filename, descr='WELL NAME')
+    las.well['STRT'] = lasio.HeaderItem('STRT', unit='M', value=float(well.start_depth), descr='START DEPTH')
+    las.well['STOP'] = lasio.HeaderItem('STOP', unit='M', value=float(well.stop_depth), descr='STOP DEPTH')
+    las.well['STEP'] = lasio.HeaderItem('STEP', unit='M', value=float(well.step) if well.step else '', descr='STEP')
+    las.well['NULL'] = lasio.HeaderItem('NULL', unit='', value=-999.25, descr='NULL VALUE')
+    las.well['COMP'] = lasio.HeaderItem('COMP', unit='', value='PetroViz Export', descr='COMPANY')
+    las.well['DATE'] = lasio.HeaderItem('DATE', unit='', value=datetime.now().strftime('%Y-%m-%d'), descr='DATE')
+    las.well['SRC'] = lasio.HeaderItem('SRC', unit='', value=f'PetroViz (original: {well.filename})', descr='SOURCE')
 
     # Глубина
     depth_mnemonic = well.depth_mnemonic or 'DEPT'
-    las.append_curve(
-        depth_mnemonic,
-        df.index.values.astype(float),
-        unit='M',
-        descr='Depth',
-    )
+    las.append_curve(depth_mnemonic, df.index.values.astype(float), unit='M', descr='Depth')
 
-    # Исходные кривые из well.curves (в порядке загрузки) — только если включено
+    # Исходные кривые
     if data.include_source_curves:
         for c in (well.curves or []):
             mnemonic = c.get('mnemonic')
             if not mnemonic or mnemonic not in df.columns:
                 continue
+            # ФИКС: Пропускаем колонки, в которых вообще нет данных (все NaN)
+            if df[mnemonic].isna().all():
+                continue
             unit = c.get('unit') or ''
             descr = c.get('description') or mnemonic
             try:
                 arr = pd.to_numeric(df[mnemonic], errors='coerce').values.astype(float)
-                las.append_curve(
-                    mnemonic,
-                    arr,
-                    unit=unit,
-                    descr=descr,
-                )
+                las.append_curve(mnemonic, arr, unit=unit, descr=descr)
             except Exception as e:
                 logger.warning("Skip curve %s in export: %s", mnemonic, e)
 
@@ -509,7 +458,6 @@ async def export_well_las(
         if not ref_depth or not ref_values:
             continue
 
-        # Приводим к df.index (nearest, если глубины не совпадают)
         try:
             series = pd.Series(ref_values, index=ref_depth)
             series = pd.to_numeric(series, errors='coerce')
@@ -517,6 +465,10 @@ async def export_well_las(
             arr = series.values.astype(float)
         except Exception as e:
             logger.warning("Cannot align computation %s: %s", comp.id, e)
+            continue
+
+        # ФИКС: Пропускаем пустые расчёты
+        if np.all(np.isnan(arr)):
             continue
 
         # Имя: output_mnemonic (без суффиксов, латиница)
@@ -537,27 +489,29 @@ async def export_well_las(
         except Exception as e:
             logger.warning("Cannot add computation %s: %s", comp.id, e)
 
-    # --- Запись во временный файл (надёжнее StringIO) ---
+    # --- Запись во временный файл ---
     import os
     import tempfile
 
     tmp_fd, tmp_path = tempfile.mkstemp(suffix='.las')
     os.close(tmp_fd)
     try:
-        # Открываем файл для записи с явной кодировкой UTF-8
-        with open(tmp_path, 'w', encoding='utf-8') as f:
-            las.write(f, version=2.0)  # Передаем файловый объект, а не путь
-
-        # Читаем обратно
+        # ИСПОЛЬЗУЕМ fmt="%.5g" ДЛЯ КОМПАКТНОЙ ЗАПИСИ
+        las.write(tmp_path, version=2.0, wrap=False, fmt="%.5g")
         with open(tmp_path, 'r', encoding='utf-8') as f:
             content = f.read()
+            # Читаем все строки и удаляем пустые/пробельные строки в самом конце
+            lines = content.splitlines()
+            while lines and not lines[-1].strip():
+                lines.pop()
+            # Собираем обратно, добавляя ровно один перевод строки в конце
+            content = '\n'.join(lines) + '\n'
     finally:
         try:
             os.unlink(tmp_path)
         except OSError:
             pass
 
-    # --- Имя файла ---
     raw_name = well.well_name or f"well_{well.id.hex[:8]}"
     safe_name = re.sub(r'[^\w\-]', '_', raw_name)[:40]
     date_str = datetime.now().strftime('%Y%m%d')
@@ -566,11 +520,7 @@ async def export_well_las(
     return Response(
         content=content.encode('utf-8'),
         media_type="application/x-las",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "X-Curves-Count": str(len(las.curves) - 1),  # без depth
-            "X-Computations-Added": str(len(added_comp_ids)),
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 # ============================================================================

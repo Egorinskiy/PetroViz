@@ -38,3 +38,4 @@ def setup_logging(level: int | None = None) -> None:
     # Приглушаем болтливые библиотеки
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("multipart").setLevel(logging.WARNING)
+    logging.getLogger("lasio").setLevel(logging.WARNING)

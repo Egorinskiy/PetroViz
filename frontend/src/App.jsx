@@ -148,6 +148,11 @@ function MainPage() {
     try {
       let blob, filename;
 
+      // 1. Вычисляем список видимых кривых (один раз для всех форматов)
+      const visibleMnemonics = wellData
+        ? selectedCurves.filter((c) => Object.prototype.hasOwnProperty.call(wellData, c))
+        : selectedCurves;
+
       if (exportFormat === 'pdf') {
         const svgElement = document.getElementById('well-log-svg');
         if (!svgElement) throw new Error('Планшет не найден');
@@ -161,14 +166,12 @@ function MainPage() {
           clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
         }
 
-        // ВНЕДРЯЕМ ШРИФТ ДЛЯ ТЕКСТА В SVG
         const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
         style.textContent = `
           text { font-family: 'DejaVu Sans', Arial, sans-serif !important; }
         `;
         clone.prepend(style);
 
-        // Просто сериализуем в строку, cairosvg сам всё поймет
         const svgString = new XMLSerializer().serializeToString(clone);
 
         ({ blob, filename } = await computationsApi.exportPdf(activeWellId, svgString));
@@ -179,6 +182,7 @@ function MainPage() {
           includeSource
         ));
       } else {
+        // 2. Для LAS передаем 4-м аргументом visibleMnemonics
         ({ blob, filename } = await computationsApi.exportLas(
           activeWellId,
           computationIds,
@@ -186,7 +190,7 @@ function MainPage() {
         ));
       }
 
-      // Скачиваем через временный <a download>
+      // Скачиваем файл
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

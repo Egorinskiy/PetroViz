@@ -20,4 +20,5 @@ class PadStateResponse(BaseModel):
 class ExportLasRequest(BaseModel):
     computations: list[str] = Field(default_factory=list)
     include_source_curves: bool = True
+    visible_curves: list[str] | None = None
     svg_content: str | None = None

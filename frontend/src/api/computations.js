@@ -45,12 +45,13 @@ export const computationsApi = {
     return response.data;
   },
 
-  exportLas: async (wellId, computationIds, includeSourceCurves = true) => {
+  exportLas: async (wellId, computationIds, includeSourceCurves = true, visibleCurves = null) => {
     const response = await apiClient.post(
-      `/wells/${wellId}/export-las`, // <--- ИМЕННО -las
+      `/wells/${wellId}/export-las`,
       {
         computations: computationIds,
         include_source_curves: includeSourceCurves,
+        visible_curves: visibleCurves, // <--- Передаем массив на бэкенд
       },
       { responseType: 'blob' }
     );
