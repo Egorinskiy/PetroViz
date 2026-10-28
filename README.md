@@ -1,20 +1,16 @@
-<table>
-  <tr>
-    <td width="200" valign="top">
-      <img src="Logo/Logo_PV.png" width="180" alt="PetroViz Logo" />
-    </td>
-    <td valign="top">
-      <h1>PetroViz</h1>
-      <p><strong>Веб-платформа для визуализации и петрофизической интерпретации данных каротажа скважин в формате LAS.</strong></p>
-      <ul>
-        <li><strong>Рабочая версия:</strong> <a href="https://petroviz.ru">https://petroviz.ru</a></li>
-        <li><strong>Автор:</strong> Васютинский Егор (Академия ТОП)</li>
-        <li><strong>Стек:</strong> FastAPI + React + PostgreSQL + JWT-auth + RBAC</li>
-      </ul>
-      <p><small><i>⚠️ Примечание: платформа спроектирована как профессиональный инструмент для плотных графиков и оптимизирована для настольных компьютеров (Desktop). Мобильная адаптация находится в планах развития (см. Roadmap).</i></small></p>
-    </td>
-  </tr>
-</table>
+<img src="Logo/Logo_PV.png" width="120" align="left" style="margin-right: 20px; margin-bottom: 10px;" alt="PetroViz Logo" />
+
+<h1 style="border-bottom: none; margin-top: 0;">PetroViz</h1>
+
+**Веб-платформа для визуализации и петрофизической интерпретации данных каротажа скважин в формате LAS.**
+
+- **Рабочая версия:** [https://petroviz.ru](https://petroviz.ru)
+- **Автор:** Васютинский Егор (Академия ТОП)
+- **Стек:** FastAPI + React + PostgreSQL + JWT-auth + RBAC
+
+<small><i>⚠️ Примечание: платформа спроектирована как профессиональный инструмент для плотных графиков и оптимизирована для настольных компьютеров (Desktop). Мобильная адаптация находится в планах развития (см. Roadmap).</i></small>
+
+<br clear="left"/>
 
 ---
 
