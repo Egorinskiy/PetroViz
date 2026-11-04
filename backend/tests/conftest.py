@@ -2,49 +2,48 @@
 Общие фикстуры для тестов PetroViz.
 
 ВАЖНО:
-  * тесты работают с ОТДЕЛЬНОЙ БД (petroviz_test),
-    dev-данные не трогаются;
-  * engine создаётся заново на каждый event loop — иначе asyncpg
-    теряет соединения между тестами на Windows.
+  * тесты работают с ОТДЕЛЬНОЙ БД (petroviz_test);
+  * TestClient (anyio) и pytest-asyncio используют разные event loop —
+    async engine не трогаем в pytest-loop, только внутри HTTP-запроса.
 """
 import asyncio
-import uuid
+
 import bcrypt
 import pytest
-import pytest_asyncio
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
+from sqlalchemy import create_engine, text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
-
 from fastapi.testclient import TestClient
 
 from app.db.base import Base
 from app.db import models  # noqa: F401
 from app.db.session import get_session
 from app.main import app
-from app.repositories.well_repository import ensure_system_user
 from app.settings import settings
 
-# ============================================================================
-# bcrypt: ускоряем хеширование в 250 раз (12 → 4 rounds)
-# ============================================================================
-# В продакшене 12 rounds (~250 мс) — правильно, защищает от брутфорса.
-# В тестах скорость важнее: 4 rounds (~1 мс), при этом bcrypt API не меняется.
 _original_gensalt = bcrypt.gensalt
+
+
 def _fast_gensalt(rounds=4, prefix=b"2b"):
     return _original_gensalt(rounds=4, prefix=prefix)
+
+
 bcrypt.gensalt = _fast_gensalt
 
+_loop_engines: dict[int, object] = {}
 
-# --- DDL один раз (отдельный короткий event loop, без session-scoped async engine) ---
+
+def _sync_db_url() -> str:
+    return settings.test_database_url.replace("postgresql+asyncpg", "postgresql+psycopg2")
+
+
+def _run_async(coro):
+    return asyncio.run(coro)
+
 
 @pytest.fixture(scope="session")
 def _prepare_test_db():
-    async def _run() -> None:
+    async def _ddl() -> None:
         engine = create_async_engine(
             settings.test_database_url,
             echo=False,
@@ -55,63 +54,45 @@ def _prepare_test_db():
             await conn.run_sync(Base.metadata.create_all)
         await engine.dispose()
 
-    asyncio.run(_run())
+    _run_async(_ddl())
     yield
 
 
-@pytest_asyncio.fixture
-async def test_engine(_prepare_test_db):
-    """Новый engine на каждый тест — совместимо с TestClient (не «Event loop is closed»)."""
-    engine = create_async_engine(
-        settings.test_database_url,
-        echo=False,
-        poolclass=NullPool,
-    )
-    yield engine
-    await engine.dispose()
-
-
-@pytest_asyncio.fixture
-async def test_session_factory(test_engine):
-    return async_sessionmaker(
-        bind=test_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def clean_tables(test_engine):
-    """Очищаем таблицы перед каждым тестом."""
-    async with test_engine.begin() as conn:
-        await conn.execute(
+@pytest.fixture(autouse=True)
+def clean_tables(_prepare_test_db):
+    """TRUNCATE через sync-драйвер — без asyncio loop pytest."""
+    engine = create_engine(_sync_db_url(), poolclass=NullPool)
+    with engine.begin() as conn:
+        conn.execute(
             text("TRUNCATE well_access, audit_log, wells, users CASCADE")
         )
+    engine.dispose()
 
 
 @pytest.fixture
-def client(test_engine):
-    """
-    HTTP-клиент FastAPI с переопределённой зависимостью get_session →
-    тестовая БД.
-    """
+def client(_prepare_test_db):
     async def _override_get_session():
-        async with AsyncSession(test_engine) as session:
+        loop = asyncio.get_running_loop()
+        key = id(loop)
+        if key not in _loop_engines:
+            _loop_engines[key] = create_async_engine(
+                settings.test_database_url,
+                echo=False,
+                poolclass=NullPool,
+            )
+        eng = _loop_engines[key]
+        async with AsyncSession(eng) as session:
             yield session
 
     app.dependency_overrides[get_session] = _override_get_session
-    with TestClient(app) as c:
+    with TestClient(app, lifespan="off") as c:
         yield c
     app.dependency_overrides.clear()
 
 
-# ============================================================================
-# Auth-фикстуры
-# ============================================================================
-
 async def _create_user(session, username: str, email: str, password: str, role):
-    """Создаёт пользователя в тестовой БД через репозиторий."""
     from app.repositories.user_repository import UserRepository
+
     repo = UserRepository(session)
     return await repo.create(
         username=username,
@@ -121,39 +102,45 @@ async def _create_user(session, username: str, email: str, password: str, role):
     )
 
 
-@pytest_asyncio.fixture
-async def default_user(test_engine):
-    """Обычный viewer-пользователь."""
-    from app.db.models import UserRole
-    async with AsyncSession(test_engine) as session:
-        user = await _create_user(
-            session,
-            username="test_viewer",
-            email="viewer@example.com",
-            password="viewer_pass_123",
-            role=UserRole.VIEWER,
+def _seed_user(username: str, email: str, password: str, role):
+    async def _go():
+        engine = create_async_engine(
+            settings.test_database_url,
+            poolclass=NullPool,
         )
-        return user
+        async with AsyncSession(engine) as session:
+            await _create_user(session, username, email, password, role)
+        await engine.dispose()
+
+    _run_async(_go())
 
 
-@pytest_asyncio.fixture
-async def admin_user(test_engine):
-    """Admin-пользователь."""
+@pytest.fixture
+def default_user(_prepare_test_db):
     from app.db.models import UserRole
-    async with AsyncSession(test_engine) as session:
-        user = await _create_user(
-            session,
-            username="test_admin",
-            email="admin@example.com",
-            password="admin_pass_123",
-            role=UserRole.ADMIN,
-        )
-        return user
+
+    _seed_user(
+        "test_viewer",
+        "viewer@example.com",
+        "viewer_pass_123",
+        UserRole.VIEWER,
+    )
+
+
+@pytest.fixture
+def admin_user(_prepare_test_db):
+    from app.db.models import UserRole
+
+    _seed_user(
+        "test_admin",
+        "admin@example.com",
+        "admin_pass_123",
+        UserRole.ADMIN,
+    )
 
 
 @pytest.fixture
 def auth_headers(client, default_user):
-    """Headers с Bearer-токеном viewer-пользователя."""
     r = client.post(
         "/api/auth/login",
         json={"username": "test_viewer", "password": "viewer_pass_123"},
@@ -165,7 +152,6 @@ def auth_headers(client, default_user):
 
 @pytest.fixture
 def admin_headers(client, admin_user):
-    """Headers с Bearer-токеном admin-пользователя."""
     r = client.post(
         "/api/auth/login",
         json={"username": "test_admin", "password": "admin_pass_123"},
@@ -177,13 +163,6 @@ def admin_headers(client, admin_user):
 
 @pytest.fixture
 def auth_client(client, auth_headers):
-    """
-    TestClient с предустановленными auth-заголовками.
-    Используем через `client.get(url, headers=auth_headers)`.
-    Но удобнее — обёртка, чтобы не передавать headers каждый раз.
-    """
-    # Возвращаем маленький объект с методами get/post/delete,
-    # которые автоматически добавляют Authorization.
     class AuthedClient:
         def __init__(self, client, headers):
             self._client = client
@@ -191,8 +170,7 @@ def auth_client(client, auth_headers):
 
         def _merge(self, kwargs):
             h = kwargs.pop("headers", {})
-            merged = {**self._headers, **h}
-            return merged
+            return {**self._headers, **h}
 
         def get(self, url, **kwargs):
             return self._client.get(url, headers=self._merge(kwargs), **kwargs)
@@ -208,9 +186,9 @@ def auth_client(client, auth_headers):
 
     return AuthedClient(client, auth_headers)
 
+
 @pytest.fixture
 def admin_client(client, admin_headers):
-    """TestClient с предустановленными auth-заголовками администратора."""
     class AuthedClient:
         def __init__(self, client, headers):
             self._client = client
