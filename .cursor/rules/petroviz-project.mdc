@@ -1,0 +1,25 @@
+---
+description: PetroViz — хостинг, деплой, стек и соглашения для агента
+alwaysApply: true
+---
+
+# PetroViz (диплом, Егор)
+
+- Стек: FastAPI backend, React frontend, PostgreSQL, Docker. Прод: `docker-compose.prod.yml`, домен **petroviz.ru**.
+- **jokertyp** = текущий VPS **FirstVDS** (2 vCPU / 4 GB), код на сервере в **`/opt/PetroViz`**. Старый хост **adminvps** — только миграция данных (pg_dump, `backend_storage`), не путать с prod.
+- Секреты в **`/opt/PetroViz/.env`**: `POSTGRES_PASSWORD`, `PETROVIZ_JWT_SECRET`, `PETROVIZ_ADMIN_PASSWORD`, `PETROVIZ_ALLOWED_ORIGINS` (без опечаток вроде `http://http://`; prod: `https://petroviz.ru,https://www.petroviz.ru`).
+- Деплой на сервере: `git pull` → `docker compose -f docker-compose.prod.yml up -d --build` → при необходимости `alembic upgrade head` в контейнере backend. GitHub Actions: secrets `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY` → IP FirstVDS.
+
+# Backend / PDF
+
+- SVG→PDF: **`cairosvg`**, не `pdf-io` — пакета **нет на PyPI** (404).
+- Docker backend: `python:3.12-slim`, Cairo/Pango/librsvg для CairoSVG.
+
+# Git
+
+- Стиль коммитов как в репо: `fix(scope): …`, `docs: …` (Conventional Commits, кратко «зачем»).
+- Push в GitHub по HTTPS: **Personal Access Token** в поле пароля, не пароль Google. Аккаунт GitHub для push = владелец **`Egorinskiy/PetroViz`** (не путать с входом в Cursor).
+
+# Общение с пользователем
+
+- Ответы **по-русски**, просто и по шагам; не коммитить и не пушить без явной просьбы.

@@ -1,28 +1,39 @@
 name: Deploy to VPS
 
+# Запуск только после успешного CI на main (см. .github/workflows/ci.yml)
 on:
-  push:
-    branches: [ "main" ]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    concurrency:
+      group: deploy-petroviz-prod
+      cancel-in-progress: false
+
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          command_timeout: 30m
           script: |
+            set -euo pipefail
             cd /opt/PetroViz
-            
-            # Сбрасываем любые локальные изменения на сервере, чтобы избежать конфликтов
+
             git fetch origin main
-            git reset --hard origin/main
-            
-            # Пересобираем и запускаем контейнеры
+            git checkout main
+            git pull --ff-only origin main
+
             docker compose -f docker-compose.prod.yml up -d --build
-            
-            # Удаляем старые (неиспользуемые) образы, чтобы не забивать диск
+
+            docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
+
             docker image prune -f
