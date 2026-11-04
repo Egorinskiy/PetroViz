@@ -40,19 +40,33 @@ def _fast_gensalt(rounds=4, prefix=b"2b"):
 bcrypt.gensalt = _fast_gensalt
 
 
-# --- Тестовый engine с NullPool (без переиспользования соединений) ---
+# --- DDL один раз (отдельный короткий event loop, без session-scoped async engine) ---
 
-@pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def test_engine():
-    """Один engine на всю сессию pytest. DDL один раз."""
+@pytest.fixture(scope="session")
+def _prepare_test_db():
+    async def _run() -> None:
+        engine = create_async_engine(
+            settings.test_database_url,
+            echo=False,
+            poolclass=NullPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        await engine.dispose()
+
+    asyncio.run(_run())
+    yield
+
+
+@pytest_asyncio.fixture
+async def test_engine(_prepare_test_db):
+    """Новый engine на каждый тест — совместимо с TestClient (не «Event loop is closed»)."""
     engine = create_async_engine(
         settings.test_database_url,
         echo=False,
         poolclass=NullPool,
     )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
     yield engine
     await engine.dispose()
 
