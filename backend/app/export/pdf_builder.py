@@ -1,11 +1,11 @@
 """
-PDF-отчёт по скважине (WYSIWYG + pdf-io).
+PDF-отчёт по скважине (WYSIWYG SVG → CairoSVG → pypdf).
 """
 import io
 import logging
 from datetime import datetime
 
-import pdf_io
+import cairosvg
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.colors import HexColor, Color
 from reportlab.pdfgen import canvas
@@ -44,9 +44,10 @@ def build_well_pdf(well, df, computations, comp_data, svg_content=None):
     if not svg_content:
         raise ValueError("Нет SVG-контента для генерации PDF")
 
-    # 1. Конвертируем SVG в PDF через pdf-io
+    # 1. Конвертируем SVG в PDF (pdf-io на PyPI отсутствует — используем CairoSVG)
     try:
-        svg_pdf_bytes = pdf_io.svg_to_pdf(svg_content)
+        svg_bytes = svg_content if isinstance(svg_content, (bytes, bytearray)) else svg_content.encode("utf-8")
+        svg_pdf_bytes = cairosvg.svg2pdf(bytestring=svg_bytes)
     except Exception as e:
         logger.error("Failed to convert SVG: %s", e)
         raise ValueError("Ошибка конвертации SVG")
