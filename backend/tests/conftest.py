@@ -43,8 +43,8 @@ bcrypt.gensalt = _fast_gensalt
 # --- Тестовый engine с NullPool (без переиспользования соединений) ---
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def _test_engine_session():
-    """Один engine на всю сессию. DDL один раз."""
+async def test_engine():
+    """Один engine на всю сессию pytest. DDL один раз."""
     engine = create_async_engine(
         settings.test_database_url,
         echo=False,
@@ -57,12 +57,6 @@ async def _test_engine_session():
     await engine.dispose()
 
 
-@pytest_asyncio.fixture(loop_scope="function")
-async def test_engine(_test_engine_session):
-    """Function-scoped обёртка: тот же engine, без DDL."""
-    yield _test_engine_session
-
-
 @pytest_asyncio.fixture
 async def test_session_factory(test_engine):
     return async_sessionmaker(
@@ -72,7 +66,7 @@ async def test_session_factory(test_engine):
     )
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def clean_tables(test_engine):
     """Очищаем таблицы перед каждым тестом."""
     async with test_engine.begin() as conn:
@@ -113,7 +107,7 @@ async def _create_user(session, username: str, email: str, password: str, role):
     )
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def default_user(test_engine):
     """Обычный viewer-пользователь."""
     from app.db.models import UserRole
@@ -128,7 +122,7 @@ async def default_user(test_engine):
         return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def admin_user(test_engine):
     """Admin-пользователь."""
     from app.db.models import UserRole
