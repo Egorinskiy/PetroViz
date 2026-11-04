@@ -1,12 +1,8 @@
 """
 Общие фикстуры для тестов PetroViz.
-
-ВАЖНО:
-  * тесты работают с ОТДЕЛЬНОЙ БД (petroviz_test);
-  * TestClient (anyio) и pytest-asyncio используют разные event loop —
-    async engine не трогаем в pytest-loop, только внутри HTTP-запроса.
 """
 import asyncio
+from contextlib import asynccontextmanager
 
 import bcrypt
 import pytest
@@ -85,9 +81,19 @@ def client(_prepare_test_db):
             yield session
 
     app.dependency_overrides[get_session] = _override_get_session
-    with TestClient(app, lifespan="off") as c:
-        yield c
-    app.dependency_overrides.clear()
+
+    @asynccontextmanager
+    async def _noop_lifespan(_app):
+        yield
+
+    previous_lifespan = app.router.lifespan_context
+    app.router.lifespan_context = _noop_lifespan
+    try:
+        with TestClient(app) as c:
+            yield c
+    finally:
+        app.router.lifespan_context = previous_lifespan
+        app.dependency_overrides.clear()
 
 
 async def _create_user(session, username: str, email: str, password: str, role):

@@ -9,7 +9,7 @@ on:
 env:
   POSTGRES_USER: petroviz
   POSTGRES_PASSWORD: petroviz_ci_password
-  PETROVIZ_DATABASE_URL: postgresql+asyncpg://petroviz:petroviz_ci_password@localhost:5432/petroviz
+  PETROVIZ_DATABASE_URL: postgresql+asyncpg://petroviz:petroviz_ci_password@localhost:5432/petroviz_test
   PETROVIZ_TEST_DATABASE_URL: postgresql+asyncpg://petroviz:petroviz_ci_password@localhost:5432/petroviz_test
   PETROVIZ_JWT_SECRET: ci-test-jwt-secret-not-for-production
 
